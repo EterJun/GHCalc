@@ -3,6 +3,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
 
+#this is a test
 def create_plot(dataf,plot_window):
     # 读取CSV文件数据,写个if，latep==''时只画俩图
     plt.rcParams['font.sans-serif'] = ['SimHei']
