@@ -1643,7 +1643,7 @@ tab4_col6_entry.grid(row=7, column=1, padx=10, pady=1, sticky=tk.W)
 # tab4_combobox1 = ttk.Combobox(tab4, textvariable=tab4_col6_entry, values=["近", "远"], state="readonly", width=5)
 # tab4_combobox1["style"] = "TCombobox"
 # tab4_combobox1.grid(row=7, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_col7_label = tk.Label(tab4, text="A装卸人员及装卸设备到位", wraplength=140, justify="left")
+tab4_col7_label = tk.Label(tab4, text="A装卸人员及装卸设备到位", wraplength=200, justify="left")
 tab4_col7_label.grid(row=8, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_col7_entry = tk.Entry(tab4, width=10)
 tab4_col7_entry.grid(row=8, column=1, padx=10, pady=1, sticky=tk.W)
@@ -1665,11 +1665,11 @@ tab4_cola_entry.grid(row=11, column=1, padx=10, pady=1, sticky=tk.W)
 # tab4_combobox2 = ttk.Combobox(tab4, textvariable=tab4_cola_entry, values=["廊桥", "客梯车"], state="readonly", width=5)
 # tab4_combobox2["style"] = "TCombobox"
 # tab4_combobox2.grid(row=11, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colb_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=140, justify="left")
+tab4_colb_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=200, justify="left")
 tab4_colb_label.grid(row=12, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colb_entry = tk.Entry(tab4, width=10)
 tab4_colb_entry.grid(row=12, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colc_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=140, justify="left")
+tab4_colc_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=200, justify="left")
 tab4_colc_label.grid(row=13, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colc_entry = tk.Entry(tab4, width=10)
 tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
@@ -1685,7 +1685,7 @@ tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
 # tab4_combobox2 = ttk.Combobox(tab4, textvariable=tab4_cold_entry, values=["是", "否"], state="readonly", width=5)
 # tab4_combobox2["style"] = "TCombobox"
 # tab4_combobox2.grid(row=14, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_cold_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位", wraplength=140, justify="left")
+tab4_cold_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位", wraplength=200, justify="left")
 tab4_cold_label.grid(row=14, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_cold_entry = tk.Entry(tab4, width=10)
 tab4_cold_entry.grid(row=14, column=1, padx=10, pady=1, sticky=tk.W)
@@ -1708,105 +1708,158 @@ tab4_colh_entry = tk.Entry(tab4, width=10)
 tab4_colh_entry.grid(row=18, column=1, padx=10, pady=1, sticky=tk.W)
 
 ##第2列
+# tab4_col001_label = tk.Label(tab4, text="作业")
+# tab4_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col011_label = tk.Label(tab4, text="时间（分钟）")
+# tab4_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col11_label = tk.Label(tab4, text="C轮挡、反光锥形标志物放置时间", wraplength=140, justify="left")
+# tab4_col11_label.grid(row=2, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col11_entry = tk.Entry(tab4, width=10)
+# tab4_col11_entry.grid(row=2, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col11_entry.insert(0, 0)
+# tab4_col12_label = tk.Label(tab4, text="C廊桥/客梯车对接操作时间", wraplength=140, justify="left")
+# tab4_col12_label.grid(row=3, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col12_entry = tk.Entry(tab4, width=10)
+# tab4_col12_entry.grid(row=3, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col12_entry.insert(0, 0)
+# tab4_col13_label = tk.Label(tab4, text="C客舱门开启操作时间", wraplength=140, justify="left")
+# tab4_col13_label.grid(row=4, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col13_entry = tk.Entry(tab4, width=10)
+# tab4_col13_entry.grid(row=4, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col14_label = tk.Label(tab4, text="C客舱门关闭操作时间", wraplength=140, justify="left")
+# tab4_col14_label.grid(row=5, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col14_entry = tk.Entry(tab4, width=10)
+# tab4_col14_entry.grid(row=5, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col15_label = tk.Label(tab4, text="C货舱门关闭操作时间", wraplength=140, justify="left")
+# tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col15_entry = tk.Entry(tab4, width=10)
+# tab4_col15_entry.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
+# # tab4_col15_label = tk.Label(tab4, text="D选择指令对接评分指标")
+# # tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
+# # tab4_col15_entry = tk.StringVar(value="廊桥")
+# # tab4_combobox3 = ttk.Combobox(tab4, textvariable=tab4_col15_entry, values=["廊桥", "客梯车"], state="readonly", width=5)
+# # tab4_combobox3["style"] = "TCombobox"
+# # tab4_combobox3.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col16_label = tk.Label(tab4, text="C廊桥/客梯车撤离操作时间", wraplength=140, justify="left")
+# tab4_col16_label.grid(row=7, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col16_entry = tk.Entry(tab4, width=10)
+# tab4_col16_entry.grid(row=7, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col17_label = tk.Label(tab4, text="C牵引车对接操作时间", wraplength=140, justify="left")
+# tab4_col17_label.grid(row=8, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col17_entry = tk.Entry(tab4, width=10)
+# tab4_col17_entry.grid(row=8, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col17_label = tk.Label(tab4, text="C轮挡、反光锥形标志物撤离时间", wraplength=140, justify="left")
+# tab4_col17_label.grid(row=9, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col17_entry = tk.Entry(tab4, width=10)
+# tab4_col17_entry.grid(row=9, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col19_label = tk.Label(tab4, text="D申请拖曳时间", wraplength=140, justify="left")
+# tab4_col19_label.grid(row=10, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col19_entry = tk.Entry(tab4, width=10)
+# tab4_col19_entry.insert(0, 0)
+# tab4_col19_entry.grid(row=10, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1a_label = tk.Label(tab4, text="D廊桥检查及准备工作完成时间", wraplength=140, justify="left")
+# tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1a_entry = tk.Entry(tab4, width=10)
+# tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1b_label = tk.Label(tab4, text="D廊桥/客梯车对接完成", wraplength=140, justify="left")
+# tab4_col1b_label.grid(row=12, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1b_entry = tk.Entry(tab4, width=10)
+# tab4_col1b_entry.grid(row=12, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1c_label = tk.Label(tab4, text="D清洁完成", wraplength=140, justify="left")
+# tab4_col1c_label.grid(row=13, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1c_entry = tk.Entry(tab4, width=10)
+# tab4_col1c_entry.grid(row=13, column=3, padx=10, pady=1, sticky=tk.W)
+# # tab4_col1a_label = tk.Label(tab4, text="航空器机型", wraplength=140, justify="left")
+# # tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
+# # tab4_col1a_entry = tk.Entry(tab4, width=10)
+# # tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
+# # tab4_col1a_entry.insert(0, "C")
+# tab4_col1c_label = tk.Label(tab4, text="D清水完成", wraplength=140, justify="left")
+# tab4_col1c_label.grid(row=14, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1c_entry = tk.Entry(tab4, width=10)
+# tab4_col1c_entry.grid(row=14, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1d_label = tk.Label(tab4, text="D污水完成", wraplength=140, justify="left")
+# tab4_col1d_label.grid(row=15, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1d_entry = tk.Entry(tab4, width=10)
+# tab4_col1d_entry.grid(row=15, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1e_label = tk.Label(tab4, text="D配餐完成", wraplength=140, justify="left")
+# tab4_col1e_label.grid(row=16, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1e_entry = tk.Entry(tab4, width=10)
+# tab4_col1e_entry.grid(row=16, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1f_label = tk.Label(tab4, text="D加油完成", wraplength=140, justify="left")
+# tab4_col1f_label.grid(row=17, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1f_entry = tk.Entry(tab4, width=10)
+# tab4_col1f_entry.grid(row=17, column=3, padx=10, pady=1, sticky=tk.W)
+# tab4_col1g_label = tk.Label(tab4, text="D登机完成并关闭登机口", wraplength=140, justify="left")
+# tab4_col1g_label.grid(row=18, column=2, padx=10, pady=1, sticky=tk.W)
+# tab4_col1g_entry = tk.Entry(tab4, width=10)
+# tab4_col1g_entry.grid(row=18, column=3, padx=10, pady=1, sticky=tk.W)
+def create_entry_labels(tab, entries,col):
+    entry_dict = {}  # 创建一个空字典用于存储输入框对象
+
+    for i, entry_data in enumerate(entries, start=2):
+        label_text, default_value = entry_data
+        label = tk.Label(tab, text=label_text, wraplength=210, justify="left")
+        label.grid(row=i, column=(col*2-2), padx=10, pady=1, sticky=tk.W)
+        entry = tk.Entry(tab, width=10)
+        entry.grid(row=i, column=(col*2-1), padx=10, pady=1, sticky=tk.W)
+        entry.insert(0, default_value)
+        entry_dict[label_text] = entry  # 将输入框对象与标签文本关联起来
+
+    return entry_dict
+entries_col2 = [
+    ("C轮挡、反光锥形标志物放置时间", ""),
+    ("C廊桥/客梯车对接操作时间", ""),
+    ("C客舱门开启操作时间", ""),
+    ("C客舱门关闭操作时间", ""),
+    ("C货舱门关闭操作时间", ""),
+    ("C廊桥/客梯车撤离操作时间", ""),
+    ("C牵引车对接操作时间", ""),
+    ("C轮挡、反光锥形标志物撤离时间", ""),
+    ("D申请拖曳时间", ""),
+    ("D廊桥检查及准备工作完成时间", ""),
+    ("D廊桥/客梯车对接完成", ""),
+    ("D清洁完成", ""),
+    ("D清水完成", ""),
+    ("D污水完成", ""),
+    ("D配餐完成", ""),
+    ("D加油完成", ""),
+    ("D登机完成并关闭登机口", ""),
+]
 tab4_col001_label = tk.Label(tab4, text="作业")
 tab4_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
 tab4_col011_label = tk.Label(tab4, text="时间（分钟）")
 tab4_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col11_label = tk.Label(tab4, text="C轮挡、反光锥形标志物放置时间", wraplength=140, justify="left")
-tab4_col11_label.grid(row=2, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col11_entry = tk.Entry(tab4, width=10)
-tab4_col11_entry.grid(row=2, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col11_entry.insert(0, 0)
-tab4_col12_label = tk.Label(tab4, text="C廊桥/客梯车对接操作时间", wraplength=140, justify="left")
-tab4_col12_label.grid(row=3, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col12_entry = tk.Entry(tab4, width=10)
-tab4_col12_entry.grid(row=3, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col12_entry.insert(0, 0)
-tab4_col13_label = tk.Label(tab4, text="C客舱门开启操作时间", wraplength=140, justify="left")
-tab4_col13_label.grid(row=4, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col13_entry = tk.Entry(tab4, width=10)
-tab4_col13_entry.grid(row=4, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col14_label = tk.Label(tab4, text="C客舱门关闭操作时间", wraplength=140, justify="left")
-tab4_col14_label.grid(row=5, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col14_entry = tk.Entry(tab4, width=10)
-tab4_col14_entry.grid(row=5, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col15_label = tk.Label(tab4, text="C货舱门关闭操作时间", wraplength=140, justify="left")
-tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col15_entry = tk.Entry(tab4, width=10)
-tab4_col15_entry.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col15_label = tk.Label(tab4, text="D选择指令对接评分指标")
-# tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col15_entry = tk.StringVar(value="廊桥")
-# tab4_combobox3 = ttk.Combobox(tab4, textvariable=tab4_col15_entry, values=["廊桥", "客梯车"], state="readonly", width=5)
-# tab4_combobox3["style"] = "TCombobox"
-# tab4_combobox3.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col16_label = tk.Label(tab4, text="C廊桥/客梯车撤离操作时间", wraplength=140, justify="left")
-tab4_col16_label.grid(row=7, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col16_entry = tk.Entry(tab4, width=10)
-tab4_col16_entry.grid(row=7, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col17_label = tk.Label(tab4, text="C牵引车对接操作时间", wraplength=140, justify="left")
-tab4_col17_label.grid(row=8, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col17_entry = tk.Entry(tab4, width=10)
-tab4_col17_entry.grid(row=8, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col17_label = tk.Label(tab4, text="C轮挡、反光锥形标志物撤离时间", wraplength=140, justify="left")
-tab4_col17_label.grid(row=9, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col17_entry = tk.Entry(tab4, width=10)
-tab4_col17_entry.grid(row=9, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col19_label = tk.Label(tab4, text="D申请拖曳时间", wraplength=140, justify="left")
-tab4_col19_label.grid(row=10, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col19_entry = tk.Entry(tab4, width=10)
-tab4_col19_entry.insert(0, 0)
-tab4_col19_entry.grid(row=10, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1a_label = tk.Label(tab4, text="D廊桥检查及准备工作完成时间", wraplength=140, justify="left")
-tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1a_entry = tk.Entry(tab4, width=10)
-tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1b_label = tk.Label(tab4, text="D廊桥/客梯车对接完成", wraplength=140, justify="left")
-tab4_col1b_label.grid(row=12, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1b_entry = tk.Entry(tab4, width=10)
-tab4_col1b_entry.grid(row=12, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1c_label = tk.Label(tab4, text="D清洁完成", wraplength=140, justify="left")
-tab4_col1c_label.grid(row=13, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=13, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1a_label = tk.Label(tab4, text="航空器机型", wraplength=140, justify="left")
-# tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1a_entry = tk.Entry(tab4, width=10)
-# tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1a_entry.insert(0, "C")
-tab4_col1c_label = tk.Label(tab4, text="D清水完成", wraplength=140, justify="left")
-tab4_col1c_label.grid(row=14, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=14, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1d_label = tk.Label(tab4, text="D污水完成", wraplength=140, justify="left")
-tab4_col1d_label.grid(row=15, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1d_entry = tk.Entry(tab4, width=10)
-tab4_col1d_entry.grid(row=15, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1e_label = tk.Label(tab4, text="D配餐完成", wraplength=140, justify="left")
-tab4_col1e_label.grid(row=16, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1e_entry = tk.Entry(tab4, width=10)
-tab4_col1e_entry.grid(row=16, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1f_label = tk.Label(tab4, text="D加油完成", wraplength=140, justify="left")
-tab4_col1f_label.grid(row=17, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1f_entry = tk.Entry(tab4, width=10)
-tab4_col1f_entry.grid(row=17, column=3, padx=10, pady=1, sticky=tk.W)
-tab4_col1g_label = tk.Label(tab4, text="D登机完成并关闭登机口", wraplength=140, justify="left")
-tab4_col1g_label.grid(row=18, column=2, padx=10, pady=1, sticky=tk.W)
-tab4_col1g_entry = tk.Entry(tab4, width=10)
-tab4_col1g_entry.grid(row=18, column=3, padx=10, pady=1, sticky=tk.W)
+entry_dict_col2 = create_entry_labels(tab4, entries_col2,2)
+
+# 通过标签文本定位对应的输入框
+# desired_entry = entry_dict["D加油完成"]
+# desired_entry.insert(0, "New Value")  # 示例：设置输入框的值为"New Value"
 
 #第三列
+entries_col3 = [
+    ("D舱单上传完成", ""),
+    ("D截柜时间", ""),
+    ("D客舱门关闭", ""),
+    ("D货舱门关闭", ""),
+    ("D引导车引导信息通报", ""),
+    ("E机务给对接指令-廊桥/客梯车对接", ""),
+    ("E廊桥/客梯车对接完成-开启客舱门", ""),
+    ("E开货门-卸载行李货邮", ""),
+    ("E旅客下机完毕-清洁作业开始", ""),
+    ("E客舱门关闭-最后一个廊桥/客梯车撤离", ""),
+    ("E关舱门-首次RDY", ""),
+    ("E接到指令-推离机位", ""),
+    ("E引导车接到指令-到达指定位置", ""),
+]
 tab4_col002_label = tk.Label(tab4, text="作业")
 tab4_col002_label.grid(row=1, column=4, padx=10, pady=1, sticky=tk.W)
 tab4_col012_label = tk.Label(tab4, text="时间（分钟）")
 tab4_col012_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
-tab4_col21_label = tk.Label(tab4, text="C廊桥检查及准备工作完成时间", wraplength=140, justify="left")
-tab4_col21_label.grid(row=2, column=4, padx=10, pady=1, sticky=tk.W)
-tab4_col21_entry = tk.Entry(tab4, width=10)
-tab4_col21_entry.grid(row=2, column=5, padx=10, pady=1, sticky=tk.W)
+entry_dict_col3 = create_entry_labels(tab4, entries_col3,3)
 
 #可以设置frame
-#需要加的几个额外数据：近远机位、机型、是否加餐、是否载客加油
+#需要加的几个额外数据：近远机位、机型、是否加餐、是否载客加油、接到推出指令时是否已对接
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
 tab4_col1b_button1.grid(row=13, column=8, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_label = tk.Label(tab4, text="目标\n航班序号", wraplength=140)
