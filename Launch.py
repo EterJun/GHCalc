@@ -679,7 +679,7 @@ def process_file():
         # elif "三桥对接作业时间" in selected_options:
         #    cal_shu("三桥对接作业时间",dataf,3,['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
         elif "客梯车到达机位时间" in selected_options:
-            cal("客梯车到达机位时间",dataf,1,0,0,1,0,'客梯车1到位','上轮挡开始')
+            cal("客梯车到达机位时间",dataf,1,0,0,1,0,'客梯车到位','上轮挡开始')
         elif "机务给指令与客梯车对接的衔接时间" in selected_options:
             cal("机务给指令与客梯车对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'])
         elif "单客梯车对接操作时间" in selected_options:
@@ -688,7 +688,7 @@ def process_file():
         elif "多客梯车对接操作时间" in selected_options:
             cal_shu("多客梯车对接操作时间",dataf,2,'客梯车数量',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'])
         elif "首辆摆渡车到达机位时间" in selected_options:
-            cal("首辆摆渡车到达机位时间",dataf,1,0,0,1,0,'首辆摆渡车到机位（大）','上轮挡开始')
+            cal("首辆摆渡车到达机位时间",dataf,1,0,0,1,0,'首辆摆渡车到机位','上轮挡开始')
         elif "地服接机人员到位时间" in selected_options:
             cal("地服接机人员到位时间",dataf,1,0,0,1,0,'地服到位','上轮挡开始')
         elif "装卸人员及装卸设备到位时间" in selected_options:
@@ -927,21 +927,23 @@ def process_user():
         # 如果出现异常，显示错误消息
         messagebox.showerror("错误", f"发生错误：{str(e)}，请重试。")
 
-def gettime(data,period,i,mode):
-    sary = []
-    for sname in period:
-        if data.loc[i, sname] != '':
-            sary.append(dataf.loc[i, sname])
-    if sary and eary:
-        stime = min(sary)
-        etime = max(sary)
+def gettime(data,period,i,mode):  # 用于获取节点的开始时间或完成时间
+    ary = []
+    get_stime = None  # 设置默认值
+    get_etime = None  # 设置默认值
+    for name in period:
+        if data.loc[i, name] != '':
+            ary.append(data.loc[i, name])
+    if ary:
+        get_stime = min(ary)
+        get_etime = max(ary)
     if mode == 0:
-        return stime
+        return get_stime
     elif mode == 1:
-        return etime
+        return get_etime
 
 def caltime(data,i,start,end,mode):
-    #A是两个单指标，B为都是多指标，D为其中有一个为多指标
+    # A是两个单指标，B为都是多指标，D为其中有一个为多指标
     if mode == 'A':
         try:
             time = ct(data.loc[i, end]) - ct(data.loc[i, start])
@@ -975,22 +977,26 @@ def readcsv():
     try:
         rownum = int(tab4_col1b_entry.get())-1
     except:
-        messagebox.showinfo("错误", "目标航班序号未填写！\n若只有一条数据，填写1即可。")
+        messagebox.showinfo("错误", "目标航班序号未填写！\n提示：若只有一条数据，填写1即可。")
         return
-    col1 = caltime(dataf_1,rownum,'飞机入位机务到位','上轮挡开始','A')
-    col2 = caltime(dataf_1,rownum,'客梯车1到位','上轮挡开始','A')
-    col3 = caltime(dataf_1,rownum,'首辆摆渡车到机位（大）','上轮挡开始','A')
-    col4 = caltime(dataf_1,rownum,'地服到位','上轮挡开始','A')
-    col5 = caltime(dataf_1,rownum,'装卸人员到位','上轮挡开始','A')
-    col6 = dataf_1.loc[rownum, '出港近远机位']
-    if col6 == '':
-        col6 = '近'
+    c1r1 = caltime(dataf_1,rownum,'拖曳到位','上轮挡开始','A')
+    c1r2 = caltime(dataf_1,rownum,'引导车到位','ELDT','A')
+    c1r3 = caltime(dataf_1,rownum,'飞机入位机务到位','上轮挡开始','A')
+    c1r4 = caltime(dataf_1,rownum,'客梯车到位','上轮挡开始','A')
+    c1r5 = caltime(dataf_1,rownum,'首辆摆渡车到机位','上轮挡开始','A')
+    c1r6 = caltime(dataf_1, rownum, '地服到位', '上轮挡开始', 'A')
+    c1r7 = caltime(dataf_1, rownum, '装卸人员到位', '上轮挡开始', 'A')
+    c1r8 = caltime(dataf_1, rownum, '清洁人员到位', '旅客下机完毕', 'A')
+    c1r9 = caltime(dataf_1, rownum, '首名机组到机位', '目标离港时间', 'A')
+    c1r9 = caltime(dataf_1, rownum, '首辆摆渡车到达登机口', '目标离港时间', 'A')
+    c1r10 = caltime(dataf_1, rownum, '最后一辆摆渡车到机位', '目标离港时间', 'A')
+    c1r11 = caltime(dataf_1, rownum, ['牵引车到位', '拖把到位', '飞机推出机务到位'], ['TSAT'], 'D')
 
     col7 = caltime(dataf_1,rownum,['上轮挡开始','摆反光锥开始'],['上轮挡结束','摆反光锥结束'],'B')
     col8 = caltime(dataf_1,rownum,['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'],'B')
     col9 = caltime(dataf_1, rownum, ['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], 'B')
     colb = dataf_1.loc[rownum, '首辆摆渡车登车耗时']
-    if colb == '':
+    if len(colb) == 0:
         colb = 0
 
     col13 = caltime(dataf_1,rownum,['给出对接手势'],['桥1对接开始','桥2对接开始','桥3对接开始'],'D')
@@ -1002,7 +1008,7 @@ def readcsv():
         col1a = 'C'
 
     tab4_col1_entry.delete(0, tk.END)
-    tab4_col1_entry.insert(0, col1)
+    tab4_col1_entry.insert(0, c1r1)
     tab4_col2_entry.delete(0, tk.END)
     tab4_col2_entry.insert(0, col2)
     tab4_col3_entry.delete(0, tk.END)
@@ -1606,7 +1612,7 @@ process_button.grid(row=9, column=1, pady=20, sticky=tk.E)
 
 # 创建第四个选项卡
 tab4 = ttk.Frame(notebook)
-notebook.add(tab4, text="  航班评分  ")
+notebook.add(tab4, text=" 航班评分 ")
 
 ##第一列
 tab4_col0_label = tk.Label(tab4, text="作业")
@@ -1833,7 +1839,7 @@ tab4_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
 entry_dict_col2 = create_entry_labels(tab4, entries_col2,2)
 
 # 通过标签文本定位对应的输入框
-# desired_entry = entry_dict["D加油完成"]
+# desired_entry = entry_dict_col2["D加油完成"]
 # desired_entry.insert(0, "New Value")  # 示例：设置输入框的值为"New Value"
 
 #第三列
@@ -1860,17 +1866,30 @@ entry_dict_col3 = create_entry_labels(tab4, entries_col3,3)
 
 #可以设置frame
 #需要加的几个额外数据：近远机位、机型、是否加餐、是否载客加油、接到推出指令时是否已对接
+entries_col4 = [
+    ("近/远机位", "近"),  # 影响航班使用廊桥还是客梯车
+    ("机型", "C"),  # 影响航班保障的指标
+    ("是否加餐", "否"),  # 影响配餐完成时间
+    ("是否载客加油", "否"),  # 影响加油完成时间
+    ("接到推出指令时是否已对接", "否"),  # 影响接到指令和推离机位衔接时间
+]
+tab4_col003_label = tk.Label(tab4, text="航班信息")
+tab4_col003_label.grid(row=1, column=4, padx=10, pady=1, sticky=tk.W)
+tab4_col013_label = tk.Label(tab4, text="")
+tab4_col013_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
+entry_dict_col4 = create_entry_labels(tab4, entries_col4,4)
+
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
-tab4_col1b_button1.grid(row=13, column=8, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_button1.grid(row=19, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_label = tk.Label(tab4, text="目标\n航班序号", wraplength=140)
-tab4_col1b_label.grid(row=13, column=9, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_label.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_entry = tk.Entry(tab4, width=10)
-tab4_col1b_entry.grid(row=13, column=10, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_entry.grid(row=19, column=8, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_entry.insert(0, 1)
 tab4_col1c_button2 = tk.Button(tab4, text="计算评分", command=browse_input_path, width=18, bg="#5cb85c", fg="white")
-tab4_col1c_button2.grid(row=14, column=8, padx=10, pady=1, sticky=tk.W, columnspan=2)
+tab4_col1c_button2.grid(row=20, column=6, padx=10, pady=1, sticky=tk.W, columnspan=2)
 tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=14, column=10, padx=10, pady=1, sticky=tk.W)
+tab4_col1c_entry.grid(row=20, column=8, padx=10, pady=1, sticky=tk.W)
 
 # 创建第五个选项卡
 tab5 = ttk.Frame(notebook)
