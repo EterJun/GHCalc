@@ -1,7 +1,0 @@
-Host github.com
-User Mhymf27@163.com
-Hostname ssh.github.com
-PreferredAuthentications publickey
-dentityFile ~/.ssh/id_rsa
-Port 443
-

@@ -312,7 +312,7 @@ def cal_shu(name,dataf,sl,slname,start,end):
             continue
         if a < -1380:
             a += 1440
-        if type1 == 1 and a == 0:
+        if a == 0:
             a += 1
         if zczlow <= a <= zczup:
             Y.append(a)
@@ -928,6 +928,7 @@ def process_user():
         messagebox.showerror("错误", f"发生错误：{str(e)}，请重试。")
 
 def gettime(data,period,i,mode):  # 用于获取节点的开始时间或完成时间
+    # 未考虑数据中含0的情况
     ary = []
     get_stime = None  # 设置默认值
     get_etime = None  # 设置默认值
@@ -942,22 +943,27 @@ def gettime(data,period,i,mode):  # 用于获取节点的开始时间或完成�
     elif mode == 1:
         return get_etime
 
-def caltime(data,i,start,end,mode):
+def caltime(data,i,start,end,mode,mode1=0):
     # A是两个单指标，B为都是多指标，D为其中有一个为多指标
     if mode == 'A':
         try:
+            if data.loc[i, end] == 'T' or data.loc[i, start] == 'T':
+                return 'Y'  #读取是否存在T（提前完成），若有则直接返回T，对应程序中的满足
             time = ct(data.loc[i, end]) - ct(data.loc[i, start])
             return time
         except:
-            return 0
+            return ''
     if mode == 'B' or mode == 'D':
         try:
             time = ct(gettime(data,end,i,1)) - ct(gettime(data,start,i,0))
-            if time == 0:
+            if time == 0 and mode1 == 1:
                 time += 1
             return time
         except:
-            return 0
+            return ''
+
+def ins():  # 用于调整输入数，目前无实用功能
+    return
 
 def readcsv():
     input_file_path = input_path_entry.get()
@@ -979,7 +985,8 @@ def readcsv():
     except:
         messagebox.showinfo("错误", "目标航班序号未填写！\n提示：若只有一条数据，填写1即可。")
         return
-    c1r1 = caltime(dataf_1,rownum,'拖曳到位','上轮挡开始','A')
+    # A类指标
+    c1r1 = caltime(dataf_1,rownum,'拖曳到位','目标离港时间','A')
     c1r2 = caltime(dataf_1,rownum,'引导车到位','ELDT','A')
     c1r3 = caltime(dataf_1,rownum,'飞机入位机务到位','上轮挡开始','A')
     c1r4 = caltime(dataf_1,rownum,'客梯车到位','上轮挡开始','A')
@@ -988,48 +995,273 @@ def readcsv():
     c1r7 = caltime(dataf_1, rownum, '装卸人员到位', '上轮挡开始', 'A')
     c1r8 = caltime(dataf_1, rownum, '清洁人员到位', '旅客下机完毕', 'A')
     c1r9 = caltime(dataf_1, rownum, '首名机组到机位', '目标离港时间', 'A')
-    c1r9 = caltime(dataf_1, rownum, '首辆摆渡车到达登机口', '目标离港时间', 'A')
-    c1r10 = caltime(dataf_1, rownum, '最后一辆摆渡车到机位', '目标离港时间', 'A')
-    c1r11 = caltime(dataf_1, rownum, ['牵引车到位', '拖把到位', '飞机推出机务到位'], ['TSAT'], 'D')
+    c1r10 = caltime(dataf_1, rownum, '首辆摆渡车到达登机口', '目标离港时间', 'A')
+    c1r11 = caltime(dataf_1, rownum, '最后一辆摆渡车到机位', '目标离港时间', 'A')
+    c1r12 = caltime(dataf_1, rownum, ['TSAT'], ['牵引车到位', '拖把到位', '飞机推出机务到位'], 'D')# 节点倒过来了，输入时需输入相反数
+    # B类指标
+    c1r13 = caltime(dataf_1, rownum, '登机口开放', '目标离港时间', 'A')
+    c1r14 = caltime(dataf_1, rownum, '装行李开始', '目标离港时间', 'A')
+    c1r15 = caltime(dataf_1, rownum, '通知翻找行李', '目标离港时间', 'A')
+    c1r16 = caltime(dataf_1, rownum, '实挑实捡行李', '目标离港时间', 'A')
 
-    col7 = caltime(dataf_1,rownum,['上轮挡开始','摆反光锥开始'],['上轮挡结束','摆反光锥结束'],'B')
-    col8 = caltime(dataf_1,rownum,['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'],'B')
-    col9 = caltime(dataf_1, rownum, ['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], 'B')
-    colb = dataf_1.loc[rownum, '首辆摆渡车登车耗时']
-    if len(colb) == 0:
-        colb = 0
+    # C类指标
+    c2r1 = caltime(dataf_1, rownum, ['上轮挡开始','摆反光锥开始'], ['上轮挡结束','摆反光锥结束'], 'B',1)
+    c2r2 = caltime(dataf_1, rownum, ['桥1对接开始','桥2对接开始','桥3对接开始','客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],
+                   ['桥1对接结束','桥2对接结束','桥3对接结束','客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], 'B',1)
+    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+        c2r3 = ''
+    else: c2r3 = int(dataf_1.loc[rownum, '开客门操作时间'])
+    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+        c2r4 = ''
+    else: c2r4 = int(dataf_1.loc[rownum, '关客门操作时间'])
+    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+        c2r5 = ''
+    else: c2r5 = int(dataf_1.loc[rownum, '关货门操作时间'])
+    c2r6 = caltime(dataf_1, rownum, ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始', '车1撤离开始', '车2撤离开始', '车3撤离开始'],
+                   ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束', '车1撤离结束', '车2撤离结束', '车3撤离结束'], 'B',1)
+    c2r7 = caltime(dataf_1, rownum, '牵引车对接开始', '牵引车对接结束', 'A',1)
+    c2r8 = caltime(dataf_1, rownum, ['撤轮挡开始', '撤反光锥开始'], ['撤轮挡结束', '撤反光锥结束'], 'B',1)
+    # D类指标
+    c2r9 = caltime(dataf_1, rownum, '申请拖曳时间', '目标离港时间', 'A')
+    c2r10 = caltime(dataf_1, rownum, '廊桥检查及准备工作完成', '上轮挡开始', 'A')
+    # c2r11 廊桥/客梯车对接完成，有现有或修改标准吗？
+    c2r12 = caltime(dataf_1, rownum, '清洁完成', '目标离港时间', 'A')
 
-    col13 = caltime(dataf_1,rownum,['给出对接手势'],['桥1对接开始','桥2对接开始','桥3对接开始'],'D')
-    col14 = caltime(dataf_1, rownum, ['给出对接手势'], ['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'], 'D')
-    col16 = caltime(dataf_1, rownum, ['桥1对接结束','桥2对接结束','桥3对接结束'], ['开客门'], 'D')
-    col17 = caltime(dataf_1, rownum, ['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], ['开客门'], 'D')
-    col1a = dataf_1.loc[rownum, '机型大类']
-    if col1a == '':
-        col1a = 'C'
+    c2r13 = caltime(dataf_1, rownum, '清水车拔管', '目标离港时间', 'A')
+    c2r14 = caltime(dataf_1, rownum, '污水车拔管', '目标离港时间', 'A')
+    c2r15 = caltime(dataf_1, rownum, '配餐完成', '目标离港时间', 'A')
+    c2r16 = caltime(dataf_1, rownum, '加油完成', '目标离港时间', 'A')
 
+    c3r1 = caltime(dataf_1, rownum, '登机口关闭', '目标离港时间', 'A')
+    c3r2 = caltime(dataf_1, rownum, '舱单上传完成', '目标离港时间', 'A')
+    c3r3 = caltime(dataf_1, rownum, '截柜时间', '目标离港时间', 'A')  # 也没有现有标准
+    c3r4 = caltime(dataf_1, rownum, '关客门', '目标离港时间', 'A')
+    c3r5 = caltime(dataf_1, rownum, '关货门', '目标离港时间', 'A')
+    c3r6 = caltime(dataf_1, rownum, '引导车通报引导信息', 'TSAT', 'A')
+    # E类指标
+    c3r7 = caltime(dataf_1, rownum, ['给出对接手势'], ['桥1对接开始','桥2对接开始','桥3对接开始','客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'], 'D',1)
+    c3r8 = caltime(dataf_1, rownum, ['开客门'],['桥1对接结束','桥2对接结束','桥3对接结束'
+        ,'客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], 'D',1)  # 节点倒过来了，输入时需输入相反数
+    c3r9 = caltime(dataf_1, rownum, '开货门', '卸行李开始', 'A',1)
+    c3r10 = caltime(dataf_1, rownum, '旅客下机完毕', '清洁开始', 'A',1)
+    c3r11 = caltime(dataf_1, rownum, ['关客门'], ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束', '车1撤离结束', '车2撤离结束', '车3撤离结束'], 'D',1)
+    c3r12 = caltime(dataf_1, rownum, ['首次RDY'], ['关客门', '关货门'], 'D',1)  # 节点倒过来了，输入时需输入相反数
+    c3r13 = caltime(dataf_1, rownum, '防撞灯闪烁', '推出', 'A',1)
+    c3r14 = caltime(dataf_1, rownum, '出港引导车接到指令', '出港引导车到位', 'A',1)
+
+    #额外信息读取
+    if pd.isna(dataf_1.loc[rownum, '进港近远机位']):
+        c4r1 = ''
+    else: c4r1 = dataf_1.loc[rownum, '进港近远机位']
+    if pd.isna(dataf_1.loc[rownum, '机型大类']):
+        c4r2 = ''
+    else: c4r2 = dataf_1.loc[rownum, '机型大类']
+    try:
+        if dataf_1.loc[rownum, '是否加餐'] == 1:
+            c4r3 = '是'
+        elif dataf_1.loc[rownum, '是否加餐'] == 0:
+            c4r3 = '否'
+        else: c4r3 = '否'
+    except: c4r3 = '否'
+    try:
+        if dataf_1.loc[rownum, '是否载客加油'] == 1:
+            c4r4 = '是'
+        elif dataf_1.loc[rownum, '是否载客加油'] == 0:
+            c4r4 = '否'
+        else: c4r4 = ''
+    except: c4r4 = ''
+    try:
+        if dataf_1.loc[rownum, '牵引车对接结束'] > dataf_1.loc[rownum, '防撞灯闪烁']:
+            c4r5 = '否'
+        elif dataf_1.loc[rownum, '牵引车对接结束'] <= dataf_1.loc[rownum, '防撞灯闪烁']:
+            c4r5 = '是'
+        else: c4r5 = ''
+    except: c4r5 = ''
+    if pd.isna(dataf_1.loc[rownum, '廊桥数量']) and pd.isna(dataf_1.loc[rownum, '客梯车数量']):
+        c4r6 = ''
+    elif pd.isna(dataf_1.loc[rownum, '廊桥数量']):
+        c4r6 = int(dataf_1.loc[rownum, '客梯车数量'])
+    elif pd.isna(dataf_1.loc[rownum, '客梯车数量']):
+        c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
+    else: c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
+
+# 在tab4中插入计算值
     tab4_col1_entry.delete(0, tk.END)
     tab4_col1_entry.insert(0, c1r1)
     tab4_col2_entry.delete(0, tk.END)
-    tab4_col2_entry.insert(0, col2)
+    tab4_col2_entry.insert(0, c1r2)
     tab4_col3_entry.delete(0, tk.END)
-    tab4_col3_entry.insert(0, col3)
+    tab4_col3_entry.insert(0, c1r3)
     tab4_col4_entry.delete(0, tk.END)
-    tab4_col4_entry.insert(0, col4)
+    tab4_col4_entry.insert(0, c1r4)
     tab4_col5_entry.delete(0, tk.END)
-    tab4_col5_entry.insert(0, col5)
+    tab4_col5_entry.insert(0, c1r5)
+    tab4_col6_entry.delete(0, tk.END)
+    tab4_col6_entry.insert(0, c1r6)
     tab4_col7_entry.delete(0, tk.END)
-    tab4_col7_entry.insert(0, col7)
+    tab4_col7_entry.insert(0, c1r7)
+    tab4_col8_entry.delete(0, tk.END)
+    tab4_col8_entry.insert(0, c1r8)
+    tab4_col9_entry.delete(0, tk.END)
+    tab4_col9_entry.insert(0, c1r9)
+    tab4_cola_entry.delete(0, tk.END)
+    tab4_cola_entry.insert(0, c1r10)
+    tab4_colb_entry.delete(0, tk.END)
+    tab4_colb_entry.insert(0, c1r11)
+    tab4_colc_entry.delete(0, tk.END)
+    try:
+        if c3r8 < 0:
+            tab4_colc_entry.insert(0, str(-int(c1r12)))
+        else:
+            tab4_colc_entry.insert(0, c1r12)
+    except: tab4_colc_entry.insert(0, '')
+    tab4_cold_entry.delete(0, tk.END)
+    tab4_cold_entry.insert(0, c1r13)
+    tab4_cole_entry.delete(0, tk.END)
+    tab4_cole_entry.insert(0, c1r14)
+    tab4_colf_entry.delete(0, tk.END)
+    tab4_colf_entry.insert(0, c1r15)
+    tab4_colg_entry.delete(0, tk.END)
+    tab4_colg_entry.insert(0, c1r16)
+    tab4_c2r1_entry.delete(0, tk.END)
+    tab4_c2r1_entry.insert(0, c2r1)
+    tab4_c2r2_entry.delete(0, tk.END)
+    tab4_c2r2_entry.insert(0, c2r2)
+    tab4_c2r3_entry.delete(0, tk.END)
+    tab4_c2r3_entry.insert(0, c2r3)
+    tab4_c2r4_entry.delete(0, tk.END)
+    tab4_c2r4_entry.insert(0, c2r4)
+    tab4_c2r5_entry.delete(0, tk.END)
+    tab4_c2r5_entry.insert(0, c2r5)
+    tab4_c2r6_entry.delete(0, tk.END)
+    tab4_c2r6_entry.insert(0, c2r6)
+    tab4_c2r7_entry.delete(0, tk.END)
+    tab4_c2r7_entry.insert(0, c2r7)
+    tab4_c2r8_entry.delete(0, tk.END)
+    tab4_c2r8_entry.insert(0, c2r8)
+    tab4_c2r9_entry.delete(0, tk.END)
+    tab4_c2r9_entry.insert(0, c2r9)
+    tab4_c2r10_entry.delete(0, tk.END)
+    tab4_c2r10_entry.insert(0, c2r10)
+    # tab4_c2r11_entry.delete(0, tk.END)
+    # tab4_c2r11_entry.insert(0, c2r11)
+    tab4_c2r12_entry.delete(0, tk.END)
+    tab4_c2r12_entry.insert(0, c2r12)
+    tab4_c2r13_entry.delete(0, tk.END)
+    tab4_c2r13_entry.insert(0, c2r13)
+    tab4_c2r14_entry.delete(0, tk.END)
+    tab4_c2r14_entry.insert(0, c2r14)
+    tab4_c2r15_entry.delete(0, tk.END)
+    tab4_c2r15_entry.insert(0, c2r15)
+    tab4_c2r16_entry.delete(0, tk.END)
+    tab4_c2r16_entry.insert(0, c2r16)
+    tab4_c3r1_entry.delete(0, tk.END)
+    tab4_c3r1_entry.insert(0, c3r1)
+    tab4_c3r2_entry.delete(0, tk.END)
+    tab4_c3r2_entry.insert(0, c3r2)
+    tab4_c3r3_entry.delete(0, tk.END)
+    tab4_c3r3_entry.insert(0, c3r3)
+    tab4_c3r4_entry.delete(0, tk.END)
+    tab4_c3r4_entry.insert(0, c3r4)
+    tab4_c3r5_entry.delete(0, tk.END)
+    tab4_c3r5_entry.insert(0, c3r5)
+    tab4_c3r6_entry.delete(0, tk.END)
+    tab4_c3r6_entry.insert(0, c3r6)
+    tab4_c3r7_entry.delete(0, tk.END)
+    tab4_c3r7_entry.insert(0, c3r7)
+    tab4_c3r8_entry.delete(0, tk.END)
+    try:
+        if c3r8 < 0:
+            tab4_c3r8_entry.insert(0, str(-int(c3r8)))
+        else:
+            tab4_c3r8_entry.insert(0, c3r8)
+    except: tab4_c3r8_entry.insert(0, '')
+    tab4_c3r9_entry.delete(0, tk.END)
+    tab4_c3r9_entry.insert(0, c3r9)
+    tab4_c3r10_entry.delete(0, tk.END)
+    tab4_c3r10_entry.insert(0, c3r10)
+    tab4_c3r11_entry.delete(0, tk.END)
+    tab4_c3r11_entry.insert(0, c3r11)
+    tab4_c3r12_entry.delete(0, tk.END)
+    try:
+        if c3r12 < 0:
+            tab4_c3r12_entry.insert(0, str(-int(c3r12)))
+        else:
+            tab4_c3r12_entry.insert(0, c3r12)
+    except: tab4_c3r12_entry.insert(0, '')
+    tab4_c3r13_entry.delete(0, tk.END)
+    tab4_c3r13_entry.insert(0, c3r13)
+    tab4_c3r14_entry.delete(0, tk.END)
+    tab4_c3r14_entry.insert(0, c3r14)
 
-
-    # except Exception as e:
-    #     # 如果出现异常，显示错误消息
-    #     messagebox.showerror("错误", f"发生错误：{str(e)}，请重试。")
-
+    tab4_c4r1_entry.delete(0, tk.END)
+    tab4_c4r1_entry.insert(0, c4r1)
+    tab4_c4r2_entry.delete(0, tk.END)
+    tab4_c4r2_entry.insert(0, c4r2)
+    tab4_c4r3_entry.delete(0, tk.END)
+    tab4_c4r3_entry.insert(0, c4r3)
+    tab4_c4r4_entry.delete(0, tk.END)
+    tab4_c4r4_entry.insert(0, c4r4)
+    tab4_c4r5_entry.delete(0, tk.END)
+    tab4_c4r5_entry.insert(0, c4r5)
+    tab4_c4r6_entry.delete(0, tk.END)
+    tab4_c4r6_entry.insert(0, c4r6)
 
 def cal_score():
-    s = 0
-    if i == 1:
-        s += i
+    # 各指标的权重可更改
+    sum = 0
+    jiwei = tab4_c4r1_entry.get()
+    jixin = tab4_c4r2_entry.get()
+    jiacan = tab4_c4r3_entry.get()
+    zaikejiayou = tab4_c4r4_entry.get()
+    shifouduijie = tab4_c4r5_entry.get()
+    qcshumu = tab4_c4r6_entry.get()
+    if jiwei == '近':
+        if jixin == 'F':
+            sum += cal_single(tab4_col1_entry, 120, 1, 'A', 0.2)
+        else:
+            sum += cal_single(tab4_col1_entry, 90, 1, 'A', 0.2)
+        sum += cal_single(tab4_col2_entry, 0, 1, 'A', 0)
+        sum += cal_single(tab4_col3_entry, 5, 1, 'A', 0.15)
+        sum += cal_single(tab4_col6_entry, 5, 1, 'A', 0)
+        sum += cal_single(tab4_col7_entry, 5, 1, 'A', 0)
+        sum += cal_single(tab4_col8_entry, 0, 1, 'A', 0.15)
+        if jixin == 'F':
+            sum += cal_single(tab4_col9_entry, 70, 1, 'A', 0.25)
+        else:
+            sum += cal_single(tab4_col9_entry, 60, 1, 'A', 0.25)
+        sum += cal_single(tab4_colc_entry, 10, 1, 'A', 0.25)
+    elif jiwei == '远':
+        if jixin == 'F':
+            sum += cal_single(tab4_col1_entry, 120, 1, 'A', 0.12)
+        else:
+            sum += cal_single(tab4_col1_entry, 90, 1, 'A', 0.12)
+    else:
+        sum += 0
+
+def cal_single(entry, standard, mode, type, weight, attribute):
+    # standard为标准阈值，mode为指标类型（1是高于阈值满足，-1是低于阈值满足）
+    # type为指标类别，weight为指标权重
+    time = entry.get()
+
+    type_to_score = {'A': 0.1, 'B': 0.1, 'C': 0.05, 'D': 0.2, 'E': 0.15}
+    if type in type_to_score:
+        score = type_to_score[type]
+    else:
+        return 0
+    score = score * weight
+
+    if pd.isna(time):
+        return 0
+    elif time == 'Y':
+        return score
+    elif mode == 1 and time >= standard:
+        return score
+    elif mode == -1 and time <= standard:
+        return score
+    else:
+        return 0
+
 ##############################################################################################
 ## 程序UI设计
 def center_window(window, width, height):
@@ -1675,7 +1907,7 @@ tab4_colb_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机�
 tab4_colb_label.grid(row=12, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colb_entry = tk.Entry(tab4, width=10)
 tab4_colb_entry.grid(row=12, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colc_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=200, justify="left")
+tab4_colc_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位", wraplength=200, justify="left")
 tab4_colc_label.grid(row=13, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colc_entry = tk.Entry(tab4, width=10)
 tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
@@ -1691,27 +1923,24 @@ tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
 # tab4_combobox2 = ttk.Combobox(tab4, textvariable=tab4_cold_entry, values=["是", "否"], state="readonly", width=5)
 # tab4_combobox2["style"] = "TCombobox"
 # tab4_combobox2.grid(row=14, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_cold_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位", wraplength=200, justify="left")
+tab4_cold_label = tk.Label(tab4, text="B登机口开放", wraplength=200, justify="left")
 tab4_cold_label.grid(row=14, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_cold_entry = tk.Entry(tab4, width=10)
 tab4_cold_entry.grid(row=14, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_cole_label = tk.Label(tab4, text="B登机口开放", wraplength=140, justify="left")
+tab4_cole_label = tk.Label(tab4, text="B行李装载开始", wraplength=140, justify="left")
 tab4_cole_label.grid(row=15, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_cole_entry = tk.Entry(tab4, width=10)
 tab4_cole_entry.grid(row=15, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colf_label = tk.Label(tab4, text="B行李装载开始", wraplength=140, justify="left")
+tab4_colf_label = tk.Label(tab4, text="B通知翻找行李", wraplength=140, justify="left")
 tab4_colf_label.grid(row=16, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colf_entry = tk.Entry(tab4, width=10)
 tab4_colf_entry.grid(row=16, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colf_entry.insert(0, 0)
-tab4_colg_label = tk.Label(tab4, text="B通知翻找行李", wraplength=140, justify="left")
+tab4_colg_label = tk.Label(tab4, text="B实挑实减行李", wraplength=140, justify="left")
 tab4_colg_label.grid(row=17, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colg_entry = tk.Entry(tab4, width=10)
 tab4_colg_entry.grid(row=17, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colh_label = tk.Label(tab4, text="B实挑实减行李", wraplength=140, justify="left")
-tab4_colh_label.grid(row=18, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_colh_entry = tk.Entry(tab4, width=10)
-tab4_colh_entry.grid(row=18, column=1, padx=10, pady=1, sticky=tk.W)
+
 
 ##第2列
 # tab4_col001_label = tk.Label(tab4, text="作业")
@@ -1830,7 +2059,6 @@ entries_col2 = [
     ("D污水完成", ""),
     ("D配餐完成", ""),
     ("D加油完成", ""),
-    ("D登机完成并关闭登机口", ""),
 ]
 tab4_col001_label = tk.Label(tab4, text="作业")
 tab4_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
@@ -1839,11 +2067,26 @@ tab4_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
 entry_dict_col2 = create_entry_labels(tab4, entries_col2,2)
 
 # 通过标签文本定位对应的输入框
-# desired_entry = entry_dict_col2["D加油完成"]
-# desired_entry.insert(0, "New Value")  # 示例：设置输入框的值为"New Value"
+tab4_c2r1_entry = entry_dict_col2["C轮挡、反光锥形标志物放置时间"]
+tab4_c2r2_entry = entry_dict_col2["C廊桥/客梯车对接操作时间"]
+tab4_c2r3_entry = entry_dict_col2["C客舱门开启操作时间"]
+tab4_c2r4_entry = entry_dict_col2["C客舱门关闭操作时间"]
+tab4_c2r5_entry = entry_dict_col2["C货舱门关闭操作时间"]
+tab4_c2r6_entry = entry_dict_col2["C廊桥/客梯车撤离操作时间"]
+tab4_c2r7_entry = entry_dict_col2["C牵引车对接操作时间"]
+tab4_c2r8_entry = entry_dict_col2["C轮挡、反光锥形标志物撤离时间"]
+tab4_c2r9_entry = entry_dict_col2["D申请拖曳时间"]
+tab4_c2r10_entry = entry_dict_col2["D廊桥检查及准备工作完成时间"]
+tab4_c2r11_entry = entry_dict_col2["D廊桥/客梯车对接完成"]
+tab4_c2r12_entry = entry_dict_col2["D清洁完成"]
+tab4_c2r13_entry = entry_dict_col2["D清水完成"]
+tab4_c2r14_entry = entry_dict_col2["D污水完成"]
+tab4_c2r15_entry = entry_dict_col2["D配餐完成"]
+tab4_c2r16_entry = entry_dict_col2["D加油完成"]
 
 #第三列
 entries_col3 = [
+    ("D登机完成并关闭登机口", ""),
     ("D舱单上传完成", ""),
     ("D截柜时间", ""),
     ("D客舱门关闭", ""),
@@ -1864,6 +2107,21 @@ tab4_col012_label = tk.Label(tab4, text="时间（分钟）")
 tab4_col012_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
 entry_dict_col3 = create_entry_labels(tab4, entries_col3,3)
 
+tab4_c3r1_entry = entry_dict_col3["D登机完成并关闭登机口"]
+tab4_c3r2_entry = entry_dict_col3["D舱单上传完成"]
+tab4_c3r3_entry = entry_dict_col3["D截柜时间"]
+tab4_c3r4_entry = entry_dict_col3["D客舱门关闭"]
+tab4_c3r5_entry = entry_dict_col3["D货舱门关闭"]
+tab4_c3r6_entry = entry_dict_col3["D引导车引导信息通报"]
+tab4_c3r7_entry = entry_dict_col3["E机务给对接指令-廊桥/客梯车对接"]
+tab4_c3r8_entry = entry_dict_col3["E廊桥/客梯车对接完成-开启客舱门"]
+tab4_c3r9_entry = entry_dict_col3["E开货门-卸载行李货邮"]
+tab4_c3r10_entry = entry_dict_col3["E旅客下机完毕-清洁作业开始"]
+tab4_c3r11_entry = entry_dict_col3["E客舱门关闭-最后一个廊桥/客梯车撤离"]
+tab4_c3r12_entry = entry_dict_col3["E关舱门-首次RDY"]
+tab4_c3r13_entry = entry_dict_col3["E接到指令-推离机位"]
+tab4_c3r14_entry = entry_dict_col3["E引导车接到指令-到达指定位置"]
+
 #可以设置frame
 #需要加的几个额外数据：近远机位、机型、是否加餐、是否载客加油、接到推出指令时是否已对接
 entries_col4 = [
@@ -1872,24 +2130,37 @@ entries_col4 = [
     ("是否加餐", "否"),  # 影响配餐完成时间
     ("是否载客加油", "否"),  # 影响加油完成时间
     ("接到推出指令时是否已对接", "否"),  # 影响接到指令和推离机位衔接时间
+    ("廊桥/客梯车数量", ""),  # 影响计算指标符合情况
 ]
+
 tab4_col003_label = tk.Label(tab4, text="航班信息")
-tab4_col003_label.grid(row=1, column=4, padx=10, pady=1, sticky=tk.W)
+tab4_col003_label.grid(row=1, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_col013_label = tk.Label(tab4, text="")
-tab4_col013_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
+tab4_col013_label.grid(row=1, column=7, padx=10, pady=1, sticky=tk.W)
 entry_dict_col4 = create_entry_labels(tab4, entries_col4,4)
+tab4_c4r1_entry = entry_dict_col4["近/远机位"]
+tab4_c4r2_entry = entry_dict_col4["机型"]
+tab4_c4r3_entry = entry_dict_col4["是否加餐"]
+tab4_c4r4_entry = entry_dict_col4["是否载客加油"]
+tab4_c4r5_entry = entry_dict_col4["接到推出指令时是否已对接"]
+tab4_c4r6_entry = entry_dict_col4["廊桥/客梯车数量"]
 
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
-tab4_col1b_button1.grid(row=19, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_button1.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_label = tk.Label(tab4, text="目标\n航班序号", wraplength=140)
-tab4_col1b_label.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_label.grid(row=19, column=8, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_entry = tk.Entry(tab4, width=10)
-tab4_col1b_entry.grid(row=19, column=8, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_entry.grid(row=19, column=9, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_entry.insert(0, 1)
-tab4_col1c_button2 = tk.Button(tab4, text="计算评分", command=browse_input_path, width=18, bg="#5cb85c", fg="white")
-tab4_col1c_button2.grid(row=20, column=6, padx=10, pady=1, sticky=tk.W, columnspan=2)
+tab4_col1c_button2 = tk.Button(tab4, text="计算评分", command=cal_score, width=18, bg="#5cb85c", fg="white")
+tab4_col1c_button2.grid(row=20, column=7, padx=10, pady=20, sticky=tk.W, columnspan=2)
 tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=20, column=8, padx=10, pady=1, sticky=tk.W)
+tab4_col1c_entry.grid(row=20, column=9, padx=10, pady=20, sticky=tk.W)
+
+tab4_col1c_button2 = tk.Button(tab4, text="计算所有航班平均分", command=browse_input_path, width=18, bg="#5cb85c", fg="white")
+tab4_col1c_button2.grid(row=21, column=7, padx=10, pady=20, sticky=tk.W, columnspan=2)
+tab4_col1c_entry = tk.Entry(tab4, width=10)
+tab4_col1c_entry.grid(row=21, column=9, padx=10, pady=20, sticky=tk.W)
 
 # 创建第五个选项卡
 tab5 = ttk.Frame(notebook)
