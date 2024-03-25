@@ -1049,6 +1049,8 @@ def readcsv():
     c3r13 = caltime(dataf_1, rownum, '防撞灯闪烁', '推出', 'A',1)
     c3r14 = caltime(dataf_1, rownum, '出港引导车接到指令', '出港引导车到位', 'A',1)
 
+    c4F1 = caltime(dataf_1, rownum, '出港引导车接到指令', '出港引导车到位', 'A',1)
+
     #额外信息读取
     if pd.isna(dataf_1.loc[rownum, '进港近远机位']):
         c4r1 = ''
@@ -1079,11 +1081,12 @@ def readcsv():
     except: c4r5 = ''
     if pd.isna(dataf_1.loc[rownum, '廊桥数量']) and pd.isna(dataf_1.loc[rownum, '客梯车数量']):
         c4r6 = ''
-    elif pd.isna(dataf_1.loc[rownum, '廊桥数量']):
+    elif pd.isna(dataf_1.loc[rownum, '廊桥数量']) or dataf_1.loc[rownum, '廊桥数量'] == '':
         c4r6 = int(dataf_1.loc[rownum, '客梯车数量'])
     elif pd.isna(dataf_1.loc[rownum, '客梯车数量']):
         c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
-    else: c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
+    else:
+        c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
 
 # 在tab4中插入计算值
     tab4_col1_entry.delete(0, tk.END)
@@ -1110,7 +1113,7 @@ def readcsv():
     tab4_colb_entry.insert(0, c1r11)
     tab4_colc_entry.delete(0, tk.END)
     try:
-        if c3r8 < 0:
+        if c1r12 < 0:
             tab4_colc_entry.insert(0, str(-int(c1r12)))
         else:
             tab4_colc_entry.insert(0, c1r12)
@@ -1209,6 +1212,7 @@ def readcsv():
 
 def cal_score():
     # 各指标的权重可更改
+    # 改进方案，可以把standard改成读取形式，方便用户修改
     sum = 0
     jiwei = tab4_c4r1_entry.get()
     jixin = tab4_c4r2_entry.get()
@@ -1216,6 +1220,7 @@ def cal_score():
     zaikejiayou = tab4_c4r4_entry.get()
     shifouduijie = tab4_c4r5_entry.get()
     qcshumu = tab4_c4r6_entry.get()
+    ## A类指标
     if jiwei == '近':
         if jixin == 'F':
             sum += cal_single(tab4_col1_entry, 120, 1, 'A', 0.2)
@@ -1236,28 +1241,191 @@ def cal_score():
             sum += cal_single(tab4_col1_entry, 120, 1, 'A', 0.12)
         else:
             sum += cal_single(tab4_col1_entry, 90, 1, 'A', 0.12)
+        sum += cal_single(tab4_col2_entry, 0, 1, 'A', 0)
+        sum += cal_single(tab4_col3_entry, 5, 1, 'A', 0.04)
+        sum += cal_single(tab4_col4_entry, 5, 1, 'A', 0.04)
+        sum += cal_single(tab4_col5_entry, 5, 1, 'A', 0.12)
+        sum += cal_single(tab4_col6_entry, 5, 1, 'A', 0)
+        sum += cal_single(tab4_col7_entry, 5, 1, 'A', 0)
+        sum += cal_single(tab4_col8_entry, 0, 1, 'A', 0.04)
+        if jixin == 'F':
+            sum += cal_single(tab4_col9_entry, 70, 1, 'A', 0.2)
+        else:
+            sum += cal_single(tab4_col9_entry, 60, 1, 'A', 0.2)
+        if jixin == 'F':
+            sum += cal_single(tab4_cola_entry, 60, 1, 'A', 0.12)
+        elif jixin == 'D' or jixin == 'E':
+            sum += cal_single(tab4_cola_entry, 50, 1, 'A', 0.12)
+        else:
+            sum += cal_single(tab4_cola_entry, 45, 1, 'A', 0.12)
+        sum += cal_single(tab4_colb_entry, 7, 1, 'A', 0.12)
+        sum += cal_single(tab4_colc_entry, 10, 1, 'A', 0.20)
+    else:
+        messagebox.showerror("错误", "机位信息输入有误，请重新输入")
+        return
+
+    ## B类指标
+    if jiwei == '近':
+        if jixin == 'F':
+            sum += cal_single(tab4_cold_entry, 40, 1, 'B', 0.25)
+        else:
+            sum += cal_single(tab4_cold_entry, 35, 1, 'B', 0.25)
+    elif jiwei == '远':
+        sum += cal_single(tab4_cold_entry, 45, 1, 'B', 0.25)
+    else:
+        messagebox.showerror("错误", "机位信息输入有误，请重新输入")
+        return
+    sum += cal_single(tab4_cole_entry, 20, 1, 'B', 0.25)
+    if jixin == 'F':
+        sum += cal_single(tab4_colf_entry, 25, 1, 'B', 0.25)
+    elif jixin == 'D' or jixin == 'E':
+        sum += cal_single(tab4_colf_entry, 20, 1, 'B', 0.25)
+    else:
+        sum += cal_single(tab4_colf_entry, 15, 1, 'B', 0.25)
+    if jixin == 'E' or jixin == 'F':
+        sum += cal_single(tab4_colg_entry, 15, 1, 'B', 0.25)
+    else:
+        sum += cal_single(tab4_colg_entry, 10, 1, 'B', 0.25)
+
+    ## C类指标
+    if jixin == 'D' or jixin == 'E' or jixin == 'F':
+        sum += cal_single(tab4_c2r1_entry, 4, 2, 'C', 0)
+    else:
+        sum += cal_single(tab4_c2r1_entry, 3, 2, 'C', 0)
+    if jiwei == '近':
+        if qcshumu == '1':
+            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', 0)
+        elif qcshumu == '2':
+            sum += cal_single(tab4_c2r2_entry, 4, 2, 'C', 0)
+        elif qcshumu == '3':
+            sum += cal_single(tab4_c2r2_entry, 8, 2, 'C', 0)
+        else:
+            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', 0)
+    elif jiwei == '远':
+        if qcshumu == '1':
+            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', 0)
+        elif int(qcshumu) > 1:
+            sum += cal_single(tab4_c2r2_entry, 4, 2, 'C', 0)
+        else:
+            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', 0)
+    else:
+        messagebox.showerror("错误", "机位信息输入有误，请重新输入")
+        return
+    sum += cal_single(tab4_c2r3_entry, 1, 2, 'C', 0)
+    sum += cal_single(tab4_c2r4_entry, 1, 2, 'C', 0)
+    sum += cal_single(tab4_c2r5_entry, 2, 2, 'C', 0)
+    if jiwei == '近':
+        if qcshumu == '1':
+            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', 0.5)
+        elif qcshumu == '2':
+            sum += cal_single(tab4_c2r6_entry, 4, 2, 'C', 0.5)
+        elif qcshumu == '3':
+            sum += cal_single(tab4_c2r6_entry, 6, 2, 'C', 0.5)
+        else:
+            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', 0.5)
+    elif jiwei == '远':
+        if qcshumu == '1':
+            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', 0.5)
+        elif int(qcshumu) > 1:
+            sum += cal_single(tab4_c2r6_entry, 4, 2, 'C', 0.5)
+        else:
+            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', 0.5)
+    else:
+        messagebox.showerror("错误", "机位信息输入有误，请重新输入")
+        return
+    sum += cal_single(tab4_c2r7_entry, 3, 2, 'C', 0.5)
+    if jixin == 'D' or jixin == 'E' or jixin == 'F':
+        sum += cal_single(tab4_c2r8_entry, 4, 2, 'C', 0)
+    else:
+        sum += cal_single(tab4_c2r8_entry, 3, 2, 'C', 0)
+
+    ## D类指标
+    if jixin == 'E' or jixin == 'F':
+        sum += cal_single(tab4_c2r9_entry, 150, 1, 'D', 0)
+    else:
+        sum += cal_single(tab4_c2r9_entry, 120, 1, 'D', 0)
+    if jiwei == '近':
+        if qcshumu == '1' or qcshumu == '2':
+            sum += cal_single(tab4_c2r10_entry, 10, 1, 'D', 0)
+        elif qcshumu == '3':
+            sum += cal_single(tab4_c2r10_entry, 20, 1, 'D', 0)
     else:
         sum += 0
+    sum += cal_single(tab4_c2r12_entry, 40, 1, 'D', 0.1)
+    sum += cal_single(tab4_c2r13_entry, 20, 1, 'D', 0)
+    sum += cal_single(tab4_c2r14_entry, 20, 1, 'D', 0)
+    if jiacan == '是':
+        sum += cal_single(tab4_c2r15_entry, 10, 1, 'D', 0.1)
+    elif jiacan == '否':
+        sum += cal_single(tab4_c2r15_entry, 40, 1, 'D', 0.1)
+    else:
+        sum += cal_single(tab4_c2r15_entry, 40, 1, 'D', 0.1)
+    if zaikejiayou == '是':
+        sum += cal_single(tab4_c2r16_entry, 10, 1, 'D', 0.1)
+    elif zaikejiayou == '否':
+        sum += cal_single(tab4_c2r16_entry, 40, 1, 'D', 0.1)
+    else:
+        sum += cal_single(tab4_c2r16_entry, 40, 1, 'D', 0.1)
 
-def cal_single(entry, standard, mode, type, weight, attribute):
-    # standard为标准阈值，mode为指标类型（1是高于阈值满足，-1是低于阈值满足）
+    sum += cal_single(tab4_c3r1_entry, 10, 1, 'D', 0.1)
+    sum += cal_single(tab4_c3r2_entry, 8, 1, 'D', 0.1)
+    # c3r3暂无标准阈值
+    sum += cal_single(tab4_c3r4_entry, 5, 1, 'D', 0.15)
+    sum += cal_single(tab4_c3r5_entry, 5, 1, 'D', 0.15)
+    sum += cal_single(tab4_c3r6_entry, 10, 1, 'D', 0)
+
+    ## E类指标
+    sum += cal_single(tab4_c3r7_entry, 1, 2, 'E', 0)
+    sum += cal_single(tab4_c3r8_entry, 1, 2, 'E', 0)
+    if jixin == 'D' or jixin == 'E' or jixin == 'F':
+        sum += cal_single(tab4_c3r9_entry, 3, 2, 'E', 0.18)
+    else:
+        sum += cal_single(tab4_c3r9_entry, 2, 2, 'E', 0.18)
+    sum += cal_single(tab4_c3r10_entry, 2, 2, 'E', 0.14)
+    if jiwei == '近':
+        sum += cal_single(tab4_c3r11_entry, 3, 2, 'E', 0.18)
+    elif jiwei =='远':
+        sum += cal_single(tab4_c3r11_entry, 2, 2, 'E', 0.18)
+    else:
+        sum += 0
+    sum += cal_single(tab4_c3r12_entry, 2, 2, 'E', 0.18)
+    if shifouduijie == '是':
+        sum += cal_single(tab4_c3r13_entry, 1, 2, 'E', 0.18)
+    elif shifouduijie == '否':
+        sum += cal_single(tab4_c3r13_entry, 3, 2, 'E', 0.18)
+    else:
+        sum += cal_single(tab4_c3r13_entry, 3, 2, 'E', 0.18)
+    sum += cal_single(tab4_c3r14_entry, 10, 2, 'E', 0.14)
+
+    score = round(sum * 100, 3)
+    tab4_col1c_entry.delete(0, tk.END)
+    tab4_col1c_entry.insert(0, str(score))
+    return
+
+def cal_single(entry, standard, mode, type, weight):
+    # standard为标准阈值，mode为指标类型（1是高于阈值满足，2是低于阈值满足）
     # type为指标类别，weight为指标权重
     time = entry.get()
+    try:
+        time = int(time)
+    except:
+        time = time
 
     type_to_score = {'A': 0.1, 'B': 0.1, 'C': 0.05, 'D': 0.2, 'E': 0.15}
     if type in type_to_score:
         score = type_to_score[type]
+
     else:
         return 0
     score = score * weight
 
-    if pd.isna(time):
-        return 0
+    if time == '':
+        return 0  # 输入为空时不算分
     elif time == 'Y':
         return score
     elif mode == 1 and time >= standard:
         return score
-    elif mode == -1 and time <= standard:
+    elif mode == 2 and time <= standard:
         return score
     else:
         return 0
@@ -1751,7 +1919,7 @@ selected_option_5.set(None)
 process_button = tk.Button(tab1, text="运行程序", command=process_file, height=1, width=15, bg="#5cb85c", fg="white")
 process_button.grid(row=9, column=1, padx=10, pady=10, columnspan=2)
 
-# 绑定事件处理程序，在切换选项卡时触发
+# 在切换选项卡时，清除掉其他选项卡上勾选的选项
 def on_tab_change_1(event):
     current_tab = notebook1.index(notebook1.select())
     if current_tab != 0:
@@ -1762,6 +1930,8 @@ def on_tab_change_1(event):
         selected_option_3.set(None)
     if current_tab != 3:
         selected_option_4.set(None)
+    if current_tab != 4:
+        selected_option_5.set(None)
 
 notebook1.bind("<<NotebookTabChanged>>", on_tab_change_1)
 
@@ -1844,7 +2014,7 @@ process_button.grid(row=9, column=1, pady=20, sticky=tk.E)
 
 # 创建第四个选项卡
 tab4 = ttk.Frame(notebook)
-notebook.add(tab4, text=" 航班评分 ")
+notebook.add(tab4, text=" 过站航班评分 ")
 
 ##第一列
 tab4_col0_label = tk.Label(tab4, text="作业")
@@ -1935,7 +2105,6 @@ tab4_colf_label = tk.Label(tab4, text="B通知翻找行李", wraplength=140, jus
 tab4_colf_label.grid(row=16, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colf_entry = tk.Entry(tab4, width=10)
 tab4_colf_entry.grid(row=16, column=1, padx=10, pady=1, sticky=tk.W)
-tab4_colf_entry.insert(0, 0)
 tab4_colg_label = tk.Label(tab4, text="B实挑实减行李", wraplength=140, justify="left")
 tab4_colg_label.grid(row=17, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colg_entry = tk.Entry(tab4, width=10)
@@ -2145,6 +2314,32 @@ tab4_c4r4_entry = entry_dict_col4["是否载客加油"]
 tab4_c4r5_entry = entry_dict_col4["接到推出指令时是否已对接"]
 tab4_c4r6_entry = entry_dict_col4["廊桥/客梯车数量"]
 
+# 在计算平均分的时候，出来的整体分析界面可以把这几项的符合率也附上
+tab4_F1_label = tk.Label(tab4, text="过站航班起飞正常(ALDT-STA)", wraplength=210, justify="left")
+tab4_F1_label.grid(row=9, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F1_entry = tk.Entry(tab4, width=10)
+tab4_F1_entry.grid(row=9, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F2_label = tk.Label(tab4, text="COBT符合性(AOBT-COBT)", wraplength=210, justify="left")
+tab4_F2_label.grid(row=10, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F2_entry = tk.Entry(tab4, width=10)
+tab4_F2_entry.grid(row=10, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F3_label = tk.Label(tab4, text="CTOT符合性(ATOT-CTOT)", wraplength=210, justify="left")
+tab4_F3_label.grid(row=11, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F3_entry = tk.Entry(tab4, width=10)
+tab4_F3_entry.grid(row=11, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F4_label = tk.Label(tab4, text="进港滑行时间(AIBT-ALDT)", wraplength=210, justify="left")
+tab4_F4_label.grid(row=12, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F4_entry = tk.Entry(tab4, width=10)
+tab4_F4_entry.grid(row=12, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F5_label = tk.Label(tab4, text="离港滑行时间(ATOT-AOBT)", wraplength=210, justify="left")
+tab4_F5_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F5_entry = tk.Entry(tab4, width=10)
+tab4_F5_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F6_label = tk.Label(tab4, text="放行延误时间(ATOT-AOBT)", wraplength=210, justify="left")
+tab4_F6_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F6_entry = tk.Entry(tab4, width=10)
+tab4_F6_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
+
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
 tab4_col1b_button1.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_label = tk.Label(tab4, text="目标\n航班序号", wraplength=140)
@@ -2153,14 +2348,14 @@ tab4_col1b_entry = tk.Entry(tab4, width=10)
 tab4_col1b_entry.grid(row=19, column=9, padx=10, pady=1, sticky=tk.W)
 tab4_col1b_entry.insert(0, 1)
 tab4_col1c_button2 = tk.Button(tab4, text="计算评分", command=cal_score, width=18, bg="#5cb85c", fg="white")
-tab4_col1c_button2.grid(row=20, column=7, padx=10, pady=20, sticky=tk.W, columnspan=2)
+tab4_col1c_button2.grid(row=20, column=7, padx=10, pady=1, sticky=tk.W, columnspan=2)
 tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=20, column=9, padx=10, pady=20, sticky=tk.W)
+tab4_col1c_entry.grid(row=20, column=9, padx=10, pady=1, sticky=tk.W)
 
-tab4_col1c_button2 = tk.Button(tab4, text="计算所有航班平均分", command=browse_input_path, width=18, bg="#5cb85c", fg="white")
-tab4_col1c_button2.grid(row=21, column=7, padx=10, pady=20, sticky=tk.W, columnspan=2)
-tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=21, column=9, padx=10, pady=20, sticky=tk.W)
+tab4_col1d_button2 = tk.Button(tab4, text="计算所有航班平均分", command=browse_input_path, width=18, bg="#5cb85c", fg="white")
+tab4_col1d_button2.grid(row=21, column=7, padx=10, pady=40, sticky=tk.W, columnspan=2)
+tab4_col1d_entry = tk.Entry(tab4, width=10)
+tab4_col1d_entry.grid(row=21, column=9, padx=10, pady=40, sticky=tk.W)
 
 # 创建第五个选项卡
 tab5 = ttk.Frame(notebook)
