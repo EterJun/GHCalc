@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, PhotoImage
 from tkinter import ttk
 import pandas as pd
 from datetime import datetime
@@ -950,6 +950,8 @@ def caltime(data,i,start,end,mode,mode1=0):
             if data.loc[i, end] == 'T' or data.loc[i, start] == 'T':
                 return 'Y'  #读取是否存在T（提前完成），若有则直接返回T，对应程序中的满足
             time = ct(data.loc[i, end]) - ct(data.loc[i, start])
+            if time == 0 and mode1 == 1:
+                time += 1
             return time
         except:
             return ''
@@ -1049,7 +1051,21 @@ def readcsv():
     c3r13 = caltime(dataf_1, rownum, '防撞灯闪烁', '推出', 'A',1)
     c3r14 = caltime(dataf_1, rownum, '出港引导车接到指令', '出港引导车到位', 'A',1)
 
-    c4F1 = caltime(dataf_1, rownum, '出港引导车接到指令', '出港引导车到位', 'A',1)
+    # F类指标
+    c4F1 = caltime(dataf_1, rownum, 'STD', 'ATOT', 'A', 1)
+    c4F2 = caltime(dataf_1, rownum, 'COBT', '撤轮挡结束', 'A', 1)
+    c4F3 = caltime(dataf_1, rownum, 'CTOT', 'ATOT', 'A', 1)
+    c4F4 = caltime(dataf_1, rownum, 'ALDT', '上轮挡开始', 'A', 1)
+    c4F5 = caltime(dataf_1, rownum, '撤轮挡结束', 'ATOT', 'A', 1)
+    c4F6 = caltime(dataf_1, rownum, 'STD', 'ATOT', 'A', 1)
+
+    try:
+        if caltime(dataf_1, rownum, 'STA', '上轮挡开始', 'A', 1) <= 0:
+            c4F7 = '否'
+        elif caltime(dataf_1, rownum, 'STA', '上轮挡开始', 'A', 1) > 0:
+            c4F7 = '是'
+        else: c4F7 = ''
+    except: c4F7 = ''
 
     #额外信息读取
     if pd.isna(dataf_1.loc[rownum, '进港近远机位']):
@@ -1113,11 +1129,9 @@ def readcsv():
     tab4_colb_entry.insert(0, c1r11)
     tab4_colc_entry.delete(0, tk.END)
     try:
-        if c1r12 < 0:
-            tab4_colc_entry.insert(0, str(-int(c1r12)))
-        else:
-            tab4_colc_entry.insert(0, c1r12)
-    except: tab4_colc_entry.insert(0, '')
+        tab4_colc_entry.insert(0, str(-int(c1r12)))
+    except:
+        tab4_colc_entry.insert(0, '')
     tab4_cold_entry.delete(0, tk.END)
     tab4_cold_entry.insert(0, c1r13)
     tab4_cole_entry.delete(0, tk.END)
@@ -1174,11 +1188,9 @@ def readcsv():
     tab4_c3r7_entry.insert(0, c3r7)
     tab4_c3r8_entry.delete(0, tk.END)
     try:
-        if c3r8 < 0:
-            tab4_c3r8_entry.insert(0, str(-int(c3r8)))
-        else:
-            tab4_c3r8_entry.insert(0, c3r8)
-    except: tab4_c3r8_entry.insert(0, '')
+        tab4_c3r8_entry.insert(0, str(-int(c3r8)))
+    except:
+        tab4_c3r8_entry.insert(0, '')
     tab4_c3r9_entry.delete(0, tk.END)
     tab4_c3r9_entry.insert(0, c3r9)
     tab4_c3r10_entry.delete(0, tk.END)
@@ -1187,15 +1199,34 @@ def readcsv():
     tab4_c3r11_entry.insert(0, c3r11)
     tab4_c3r12_entry.delete(0, tk.END)
     try:
-        if c3r12 < 0:
-            tab4_c3r12_entry.insert(0, str(-int(c3r12)))
-        else:
-            tab4_c3r12_entry.insert(0, c3r12)
+        tab4_c3r12_entry.insert(0, str(-int(c3r12)))
     except: tab4_c3r12_entry.insert(0, '')
     tab4_c3r13_entry.delete(0, tk.END)
     tab4_c3r13_entry.insert(0, c3r13)
     tab4_c3r14_entry.delete(0, tk.END)
     tab4_c3r14_entry.insert(0, c3r14)
+    tab4_F1_entry.delete(0, tk.END)
+    try:
+        tab4_F1_entry.insert(0, str(c4F1-30))
+    except:
+        tab4_F1_entry.insert(0, '')
+    tab4_F2_entry.delete(0, tk.END)
+    tab4_F2_entry.insert(0, c4F2)
+    tab4_F3_entry.delete(0, tk.END)
+    tab4_F3_entry.insert(0, c4F3)
+    tab4_F4_entry.delete(0, tk.END)
+    tab4_F4_entry.insert(0, c4F4)
+    tab4_F5_entry.delete(0, tk.END)
+    tab4_F5_entry.insert(0, c4F5)
+    tab4_F6_entry.delete(0, tk.END)
+    if c4F7 == '是':
+        tab4_F6_entry.insert(0, str(c4F1-40))
+    elif c4F7 == '否':
+        tab4_F6_entry.insert(0, str(c4F1-30))
+    else:
+        tab4_F6_entry.insert(0, '')
+    tab4_F7_entry.delete(0, tk.END)
+    tab4_F7_entry.insert(0, c4F7)
 
     tab4_c4r1_entry.delete(0, tk.END)
     tab4_c4r1_entry.insert(0, c4r1)
@@ -1397,6 +1428,33 @@ def cal_score():
         sum += cal_single(tab4_c3r13_entry, 3, 2, 'E', 0.18)
     sum += cal_single(tab4_c3r14_entry, 10, 2, 'E', 0.14)
 
+    ## F类指标
+    sum += cal_single(tab4_F1_entry, 0, 2, 'F', 0.3)
+    try:
+        if int(tab4_F2_entry.get()) >= 0:
+            sum += cal_single(tab4_F2_entry, 10, 2, 'F', 0.2)
+        elif int(tab4_F2_entry.get()) < 0:
+            sum += cal_single(tab4_F2_entry, -5, 1, 'F', 0.2)
+        else:
+            sum += 0
+    except:
+        sum += 0
+    try:
+        if int(tab4_F3_entry.get()) >= 0:
+            sum += cal_single(tab4_F3_entry, 10, 2, 'F', 0.1)
+        elif int(tab4_F3_entry.get()) < 0:
+            sum += cal_single(tab4_F3_entry, -5, 1, 'F', 0.1)
+        else:
+            sum += 0
+    except:
+        sum += 0
+    sum += cal_single(tab4_F4_entry, 12, 2, 'F', 0.1)
+    # 指标若有三个打分标准，则分成两段，每段的权重为原权重/2
+    sum += cal_single(tab4_F5_entry, 25, 2, 'F', 0.075)
+    sum += cal_single(tab4_F5_entry, 30, 2, 'F', 0.075)
+    sum += cal_single(tab4_F6_entry, 0, 2, 'F', 0.075)
+    sum += cal_single(tab4_F6_entry, 5, 2, 'F', 0.075)
+
     score = round(sum * 100, 3)
     tab4_col1c_entry.delete(0, tk.END)
     tab4_col1c_entry.insert(0, str(score))
@@ -1411,7 +1469,7 @@ def cal_single(entry, standard, mode, type, weight):
     except:
         time = time
 
-    type_to_score = {'A': 0.1, 'B': 0.1, 'C': 0.05, 'D': 0.2, 'E': 0.15}
+    type_to_score = {'A': 0.1, 'B': 0.1, 'C': 0.05, 'D': 0.2, 'E': 0.15, 'F': 0.4}
     if type in type_to_score:
         score = type_to_score[type]
 
@@ -2315,7 +2373,7 @@ tab4_c4r5_entry = entry_dict_col4["接到推出指令时是否已对接"]
 tab4_c4r6_entry = entry_dict_col4["廊桥/客梯车数量"]
 
 # 在计算平均分的时候，出来的整体分析界面可以把这几项的符合率也附上
-tab4_F1_label = tk.Label(tab4, text="过站航班起飞正常(ALDT-STA)", wraplength=210, justify="left")
+tab4_F1_label = tk.Label(tab4, text="过站航班起飞正常(ATOT-STD-30min)", wraplength=210, justify="left")
 tab4_F1_label.grid(row=9, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_F1_entry = tk.Entry(tab4, width=10)
 tab4_F1_entry.grid(row=9, column=7, padx=10, pady=1, sticky=tk.W)
@@ -2335,10 +2393,14 @@ tab4_F5_label = tk.Label(tab4, text="离港滑行时间(ATOT-AOBT)", wraplength=
 tab4_F5_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_F5_entry = tk.Entry(tab4, width=10)
 tab4_F5_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
-tab4_F6_label = tk.Label(tab4, text="放行延误时间(ATOT-AOBT)", wraplength=210, justify="left")
-tab4_F6_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F6_label = tk.Label(tab4, text="放行延误时间", wraplength=210, justify="left")
+tab4_F6_label.grid(row=14, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_F6_entry = tk.Entry(tab4, width=10)
-tab4_F6_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F6_entry.grid(row=14, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_F7_label = tk.Label(tab4, text="是否进港延误", wraplength=210, justify="left")
+tab4_F7_label.grid(row=15, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_F7_entry = tk.Entry(tab4, width=10)
+tab4_F7_entry.grid(row=15, column=7, padx=10, pady=1, sticky=tk.W)
 
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
 tab4_col1b_button1.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
