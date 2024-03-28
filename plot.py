@@ -13,7 +13,7 @@ def create_plot(dataf,plot_window):
     latep = dataf.iloc[0, 4]
     earlyp = dataf.iloc[0, 6]
     try:
-        zerop = 1 - earlyp - latep
+        zerop = round((1 - earlyp - latep))
     except:
         zerop = ''
     mean = dataf.iloc[0, 7]

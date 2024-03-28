@@ -46,6 +46,7 @@ def perc(Y, mode, ccsv):
         return
     mean = pd.Series(Y).mean()
     xs = [pd.Series(Y).quantile(0.05 * factor) for factor in range(1, 20)]
+    xs = [round(x) for x in xs]
     # 衔接或持续类
     if mode == -1:
         ys = list(map(lambda x: sum(value <= x for value in Y) / len(Y), xs))
@@ -847,7 +848,7 @@ def process_file():
         create_plot(result_df, plot_window)
         #result_df.to_csv(output_file_path, encoding='gbk', index=False)
     except Exception as e:
-        messagebox.showerror("错误", f"计算时出现错误: {str(e)}")
+        messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
         return
 
 def process_user():
@@ -918,7 +919,7 @@ def process_user():
                 messagebox.showinfo("错误",
                                     f"保存文件时出现错误: {str(e)}\n文件保存到新路径: {new_output_file_path}")
             except Exception as e:
-                messagebox.showerror("错误", f"计算时出现错误: {str(e)}")
+                messagebox.showerror("错误", f"自定义计算时出现错误: {str(e)}")
 
         # 显示成功消息
         messagebox.showinfo("成功", "计算完成！文件已保存！")
@@ -1512,9 +1513,9 @@ root.state('zoomed')
 
 # 创建一个标签和输入框用于导入路径
 input_label = tk.Label(root, text="导入路径:")
-input_label.grid(row=0, column=0, padx=10, pady=10, sticky=tk.W)
+input_label.grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
 input_path_entry = tk.Entry(root, width=45)
-input_path_entry.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
+input_path_entry.grid(row=0, column=1, padx=1, pady=10, sticky=tk.W)
 
 # 创建选择导入路径的按钮
 def browse_input_path():
@@ -1523,13 +1524,13 @@ def browse_input_path():
     input_path_entry.insert(0, input_file_path)
 
 browse_input_button = tk.Button(root, text="选择导入文件", command=browse_input_path)
-browse_input_button.grid(row=0, column=2, padx=10, pady=10, sticky=tk.W)
+browse_input_button.grid(row=0, column=2, padx=1, pady=10, sticky=tk.W)
 
 # 创建一个标签和输入框用于导出路径
 output_label = tk.Label(root, text="导出路径:")
-output_label.grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
+output_label.grid(row=1, column=0, padx=10, pady=10, sticky=tk.E)
 output_path_entry = tk.Entry(root, width=45)
-output_path_entry.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
+output_path_entry.grid(row=1, column=1, padx=1, pady=10, sticky=tk.W)
 
 # 创建选择导出路径的按钮
 def browse_output_path():
@@ -1538,7 +1539,7 @@ def browse_output_path():
     output_path_entry.insert(0, output_file_path)
 
 browse_output_button = tk.Button(root, text="选择导出路径", command=browse_output_path)
-browse_output_button.grid(row=1, column=2, padx=10, pady=10, sticky=tk.W)
+browse_output_button.grid(row=1, column=2, padx=1, pady=10, sticky=tk.W)
 
 # 创建选项卡
 notebook = ttk.Notebook(root)
