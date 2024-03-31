@@ -953,6 +953,8 @@ def caltime(data,i,start,end,mode,mode1=0):
             time = ct(data.loc[i, end]) - ct(data.loc[i, start])
             if time == 0 and mode1 == 1:
                 time += 1
+            if time <= -1000:
+                time += 1440
             return time
         except:
             return ''
@@ -961,6 +963,8 @@ def caltime(data,i,start,end,mode,mode1=0):
             time = ct(gettime(data,end,i,1)) - ct(gettime(data,start,i,0))
             if time == 0 and mode1 == 1:
                 time += 1
+            if time <= -1000:
+                time += 1440
             return time
         except:
             return ''
@@ -1221,9 +1225,9 @@ def readcsv():
     tab4_F5_entry.insert(0, c4F5)
     tab4_F6_entry.delete(0, tk.END)
     if c4F7 == '是':
-        tab4_F6_entry.insert(0, str(c4F1-40))
+        tab4_F6_entry.insert(0, str(c4F6-40))
     elif c4F7 == '否':
-        tab4_F6_entry.insert(0, str(c4F1-30))
+        tab4_F6_entry.insert(0, str(c4F6-30))
     else:
         tab4_F6_entry.insert(0, '')
     tab4_F7_entry.delete(0, tk.END)
