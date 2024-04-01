@@ -496,6 +496,7 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
                 try:
                     if dataf.loc[i, '机型大类'] not in ['A', 'B', 'C']:
                         continue
+                    # ABC机型快速过站时间小于65min
                     if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 65:
                         continue
                 except:
@@ -504,6 +505,7 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
                 try:
                     if dataf.loc[i, '机型大类'] not in ['D', 'E', 'F']:
                         continue
+                    # ABC机型快速过站时间小于75min
                     if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 75:
                         continue
                 except:
@@ -664,7 +666,9 @@ def process_file():
     selected_options.append(selected_option_5.get())
 
     try:
-        if "过站机务到位" in selected_options:
+        if "拖曳飞机到达出港机位" in selected_options:
+            cal("过站机务到位", dataf, 1, 0, 0, 1, 0, '飞机入位机务到位', '上轮挡开始')
+        elif "过站机务到位" in selected_options:
             cal("过站机务到位",dataf,1,0,0,1,0,'飞机入位机务到位','上轮挡开始')
         elif "轮挡、反光锥形标志物放置操作时间-ABC" in selected_options:
             cal("轮挡、反光锥形标志物放置操作时间-ABC",dataf,2,'ABC','ALL',-1,1,['上轮挡开始','摆反光锥开始'],['上轮挡结束','摆反光锥结束'])
@@ -782,27 +786,27 @@ def process_file():
         elif "接到指令到航空器开始推离机位时间(已对接)" in selected_options:
             cal_tc("接到指令到航空器开始推离机位时间(已对接)",dataf,1,'防撞灯闪烁','推出')
         elif "快速过站旅客下机-C" in selected_options:
-            cal("快速过站旅客下机-C",dataf,2,'ABC','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
+            cal_ksgz("快速过站旅客下机-C",dataf,2,'ABC','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
         elif "快速过站旅客下机-E" in selected_options:
-            cal("快速过站旅客下机-E",dataf,2,'DEF','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
+            cal_ksgz("快速过站旅客下机-E",dataf,2,'DEF','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
         elif "快速过站配餐-C" in selected_options:
-            cal("快速过站配餐-C",dataf,2,'ABC','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
+            cal_ksgz("快速过站配餐-C",dataf,2,'ABC','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
         elif "快速过站配餐-E" in selected_options:
-            cal("快速过站配餐-E",dataf,2,'DEF','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
+            cal_ksgz("快速过站配餐-E",dataf,2,'DEF','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
         # id55
         elif "快速过站清洁-C" in selected_options:
-            cal("快速过站清洁-C",dataf,1,'ABC',0,-1,1,'清洁开始','清洁完成')
+            cal_ksgz("快速过站清洁-C",dataf,1,'ABC',0,-1,1,'清洁开始','清洁完成')
         elif "快速过站清洁-E" in selected_options:
-            cal("快速过站清洁-E",dataf,1,'DEF',0,-1,1,'清洁开始','清洁完成')
+            cal_ksgz("快速过站清洁-E",dataf,1,'DEF',0,-1,1,'清洁开始','清洁完成')
         elif "快速过站加油-C" in selected_options:
-            cal("快速过站加油-C",dataf,1,'ABC',0,-1,1,'加油开始','加油完成')
+            cal_ksgz("快速过站加油-C",dataf,1,'ABC',0,-1,1,'加油开始','加油完成')
         elif "快速过站加油-E" in selected_options:
-            cal("快速过站加油-E",dataf,1,'DEF',0,-1,1,'加油开始','加油完成')
+            cal_ksgz("快速过站加油-E",dataf,1,'DEF',0,-1,1,'加油开始','加油完成')
         elif "快速过站旅客登机-C" in selected_options:
-            cal("快速过站旅客登机-C", dataf, 2, 'ABC', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
+            cal_ksgz("快速过站旅客登机-C", dataf, 2, 'ABC', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
         # id60
         elif "快速过站旅客登机-E" in selected_options:
-            cal("快速过站旅客登机-E", dataf, 2, 'DEF', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
+            cal_ksgz("快速过站旅客登机-E", dataf, 2, 'DEF', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
         elif "快速过站客舱清洁完成时间_下客结束-ABC" in selected_options:
             cal_ksgz("快速过站客舱清洁完成时间_下客结束-ABC",dataf,2,'ABC','KS',-1,0,['近机位下客结束','远机位下客结束'],'清洁完成')
         elif "快速过站客舱清洁完成时间_下客结束-DEF" in selected_options:
@@ -850,6 +854,66 @@ def process_file():
     except Exception as e:
         messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
         return
+
+def process_data():
+    # 获取用户输入的文件路径
+    file_path = input_path_entry.get()
+
+# try:
+    # 检查是否选择了导入路径
+    if not file_path:
+        messagebox.showinfo("提示", "未选择导入路径，请重试。")
+        return
+    try:
+        dataf = pd.read_csv(file_path, header=0, encoding='gbk', na_filter=False)
+    except:
+        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        return
+    # 获取用户输入的列名
+    col_name_1 = qx_col1_entry.get()
+    col_name_2 = qx_col2_entry.get()
+    lower_threshold = float(qx_lower_threshold_entry.get())
+    upper_threshold = float(qx_upper_threshold_entry.get())
+
+    # 变量重置
+    Y = []
+    D = []
+    error = 0
+    T = 0
+    result_text.delete('1.0', tk.END)
+
+    # 遍历数据框
+    for i in range(0, len(dataf)):
+        if not pd.isna(dataf.loc[i, col_name_1]) and not len(dataf.loc[i, col_name_1]) == 0:
+            if not pd.isna(dataf.loc[i, col_name_2]) and not len(dataf.loc[i, col_name_2]) == 0:
+                if dataf.loc[i, col_name_1] == 'T':
+                    T += 1
+                elif dataf.loc[i, col_name_2] == 'T':
+                    T += 1
+                else:
+                    try:
+                        a = (ct(dataf.loc[i, col_name_2]) - ct(dataf.loc[i, col_name_1]))
+                    except:
+                        result_text.insert(tk.END, f'第{i+2}行结果异常！请检查！\n')
+                        continue
+                    if a < lower_threshold or a > upper_threshold:
+                        result_text.insert(tk.END, f'第{i+2}行结果异常！请检查！\n')
+                        error += 1
+                    Y.append(a)
+                    if a > 0:
+                        D.append(a)
+
+    # 显示错误信息
+    if error > 0:
+        result_text.insert(tk.END, f"处理完成，共发现{error}行错误\n")
+        return
+
+    # 显示处理结果
+    result_text.insert(tk.END, f"处理完成，未发现错误。 ")
+    return
+
+# except Exception as e:
+#     result_text.insert(tk.END, f"发生异常：{str(e)}\n")
 
 def process_user():
     try:
@@ -1031,7 +1095,6 @@ def readcsv():
     # D类指标
     c2r9 = caltime(dataf_1, rownum, '申请拖曳时间', '目标离港时间', 'A')
     c2r10 = caltime(dataf_1, rownum, '廊桥检查及准备工作完成', '上轮挡开始', 'A')
-    # c2r11 廊桥/客梯车对接完成，有现有或修改标准吗？
     c2r12 = caltime(dataf_1, rownum, '清洁完成', '目标离港时间', 'A')
 
     c2r13 = caltime(dataf_1, rownum, '清水车拔管', '目标离港时间', 'A')
@@ -1041,7 +1104,6 @@ def readcsv():
 
     c3r1 = caltime(dataf_1, rownum, '登机口关闭', '目标离港时间', 'A')
     c3r2 = caltime(dataf_1, rownum, '舱单上传完成', '目标离港时间', 'A')
-    c3r3 = caltime(dataf_1, rownum, '截柜时间', '目标离港时间', 'A')  # 也没有现有标准
     c3r4 = caltime(dataf_1, rownum, '关客门', '目标离港时间', 'A')
     c3r5 = caltime(dataf_1, rownum, '关货门', '目标离港时间', 'A')
     c3r6 = caltime(dataf_1, rownum, '引导车通报引导信息', 'TSAT', 'A')
@@ -1165,8 +1227,6 @@ def readcsv():
     tab4_c2r9_entry.insert(0, c2r9)
     tab4_c2r10_entry.delete(0, tk.END)
     tab4_c2r10_entry.insert(0, c2r10)
-    # tab4_c2r11_entry.delete(0, tk.END)
-    # tab4_c2r11_entry.insert(0, c2r11)
     tab4_c2r12_entry.delete(0, tk.END)
     tab4_c2r12_entry.insert(0, c2r12)
     tab4_c2r13_entry.delete(0, tk.END)
@@ -1181,8 +1241,6 @@ def readcsv():
     tab4_c3r1_entry.insert(0, c3r1)
     tab4_c3r2_entry.delete(0, tk.END)
     tab4_c3r2_entry.insert(0, c3r2)
-    tab4_c3r3_entry.delete(0, tk.END)
-    tab4_c3r3_entry.insert(0, c3r3)
     tab4_c3r4_entry.delete(0, tk.END)
     tab4_c3r4_entry.insert(0, c3r4)
     tab4_c3r5_entry.delete(0, tk.END)
@@ -1405,7 +1463,6 @@ def cal_score():
 
     sum += cal_single(tab4_c3r1_entry, 10, 1, 'D', 0.1)
     sum += cal_single(tab4_c3r2_entry, 8, 1, 'D', 0.1)
-    # c3r3暂无标准阈值
     sum += cal_single(tab4_c3r4_entry, 5, 1, 'D', 0.15)
     sum += cal_single(tab4_c3r5_entry, 5, 1, 'D', 0.15)
     sum += cal_single(tab4_c3r6_entry, 10, 1, 'D', 0)
@@ -2002,16 +2059,39 @@ notebook1.bind("<<NotebookTabChanged>>", on_tab_change_1)
 tab2 = ttk.Frame(notebook)
 notebook.add(tab2, text="数据清洗")
 
-# # 创建一个标签显示提示信息
-# message_label = tk.Label(tab2, text="该功能正在开发，请期待后续版本", font=("Helvetica", 12, "italic"), fg="red")
-# message_label.pack(pady=50)
+# 列名输入框
+qx_col1_label = tk.Label(tab2, text="开始节点列名：")
+qx_col1_label.grid(row=1, column=0, padx=10, pady=10, sticky=tk.W)
 
-# 绑定事件处理程序，在切换选项卡时触发
-def on_tab_change(event):
-    current_tab = notebook.index(notebook.select())
-    if current_tab == 1:  # 第二个选项卡
-        messagebox.showinfo("提示", "界面开发中，请期待后续版本")
-        root.after(1, lambda: notebook.select(tab1))  # 切换回第一个选项卡
+qx_col1_entry = tk.Entry(tab2, width=20)
+qx_col1_entry.grid(row=1, column=1, padx=10, pady=10, sticky=tk.W)
+
+qx_col2_label = tk.Label(tab2, text="结束节点列名：")
+qx_col2_label.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
+
+qx_col2_entry = tk.Entry(tab2, width=20)
+qx_col2_entry.grid(row=2, column=1, padx=10, pady=10, sticky=tk.W)
+
+# 阈值输入框
+qx_lower_threshold_label = tk.Label(tab2, text="差值大于等于：")
+qx_lower_threshold_label.grid(row=1, column=2, padx=10, pady=10, sticky=tk.W)
+
+qx_lower_threshold_entry = tk.Entry(tab2, width=10)
+qx_lower_threshold_entry.grid(row=1, column=3, padx=10, pady=10, sticky=tk.W)
+
+qx_upper_threshold_label = tk.Label(tab2, text="差值小于等于：")
+qx_upper_threshold_label.grid(row=2, column=2, padx=10, pady=10, sticky=tk.W)
+
+qx_upper_threshold_entry = tk.Entry(tab2, width=10)
+qx_upper_threshold_entry.grid(row=2, column=3, padx=10, pady=10, sticky=tk.W)
+
+# 处理按钮
+qx_process_button = tk.Button(tab2, text="检查数据", command=process_data)
+qx_process_button.grid(row=3, column=1, pady=20, sticky=tk.E)
+
+# 处理结果文本框
+result_text = tk.Text(tab2, height=10, width=60)
+result_text.grid(row=4, column=0, columnspan=4, padx=10, pady=10)
 
 # 创建第三个选项卡
 tab3 = ttk.Frame(notebook)
@@ -2291,6 +2371,7 @@ entries_col2 = [
     ("D污水完成", ""),
     ("D配餐完成", ""),
     ("D加油完成", ""),
+    ("D登机完成并关闭登机口", "")
 ]
 tab4_col001_label = tk.Label(tab4, text="作业")
 tab4_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
@@ -2309,18 +2390,16 @@ tab4_c2r7_entry = entry_dict_col2["C牵引车对接操作时间"]
 tab4_c2r8_entry = entry_dict_col2["C轮挡、反光锥形标志物撤离时间"]
 tab4_c2r9_entry = entry_dict_col2["D申请拖曳时间"]
 tab4_c2r10_entry = entry_dict_col2["D廊桥检查及准备工作完成时间"]
-tab4_c2r11_entry = entry_dict_col2["D廊桥/客梯车对接完成"]
 tab4_c2r12_entry = entry_dict_col2["D清洁完成"]
 tab4_c2r13_entry = entry_dict_col2["D清水完成"]
 tab4_c2r14_entry = entry_dict_col2["D污水完成"]
 tab4_c2r15_entry = entry_dict_col2["D配餐完成"]
 tab4_c2r16_entry = entry_dict_col2["D加油完成"]
+tab4_c3r1_entry = entry_dict_col2["D登机完成并关闭登机口"]
 
 #第三列
 entries_col3 = [
-    ("D登机完成并关闭登机口", ""),
     ("D舱单上传完成", ""),
-    ("D截柜时间", ""),
     ("D客舱门关闭", ""),
     ("D货舱门关闭", ""),
     ("D引导车引导信息通报", ""),
@@ -2339,9 +2418,7 @@ tab4_col012_label = tk.Label(tab4, text="时间（分钟）")
 tab4_col012_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
 entry_dict_col3 = create_entry_labels(tab4, entries_col3,3)
 
-tab4_c3r1_entry = entry_dict_col3["D登机完成并关闭登机口"]
 tab4_c3r2_entry = entry_dict_col3["D舱单上传完成"]
-tab4_c3r3_entry = entry_dict_col3["D截柜时间"]
 tab4_c3r4_entry = entry_dict_col3["D客舱门关闭"]
 tab4_c3r5_entry = entry_dict_col3["D货舱门关闭"]
 tab4_c3r6_entry = entry_dict_col3["D引导车引导信息通报"]
@@ -2445,7 +2522,7 @@ function_text.insert("6.0", "1.实现了所有过站指标的统计\n"
 function_text.pack(pady=10)
 
 notebook.grid(row=9, column=0, padx=10, pady=10, sticky=tk.W)
-notebook.bind("<<NotebookTabChanged>>", on_tab_change)
+# notebook.bind("<<NotebookTabChanged>>", on_tab_change)
 
 # 运行UI循环
 root.mainloop()
