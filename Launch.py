@@ -1574,7 +1574,7 @@ root.state('zoomed')
 
 # 创建一个标签和输入框用于导入路径
 input_label = tk.Label(root, text="导入路径:")
-input_label.grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
+input_label.grid(row=0, column=0, padx=1, pady=10, sticky=tk.E)
 input_path_entry = tk.Entry(root, width=45)
 input_path_entry.grid(row=0, column=1, padx=1, pady=10, sticky=tk.W)
 
@@ -1583,13 +1583,18 @@ def browse_input_path():
     input_file_path = filedialog.askopenfilename(title="选择导入文件", filetypes=[("CSV文件", "*.csv")])
     input_path_entry.delete(0, tk.END)
     input_path_entry.insert(0, input_file_path)
+    airlines = []
+#可以加入功能，创建几个变量，然后让后面的下拉框读取
 
+airlines = ['']
+agent = ['']
+stand = ['']
 browse_input_button = tk.Button(root, text="选择导入文件", command=browse_input_path)
-browse_input_button.grid(row=0, column=2, padx=1, pady=10, sticky=tk.W)
+browse_input_button.place(x=660, y=21, anchor='w')
 
 # 创建一个标签和输入框用于导出路径
 output_label = tk.Label(root, text="导出路径:")
-output_label.grid(row=1, column=0, padx=10, pady=10, sticky=tk.E)
+output_label.grid(row=1, column=0, padx=1, pady=10, sticky=tk.E)
 output_path_entry = tk.Entry(root, width=45)
 output_path_entry.grid(row=1, column=1, padx=1, pady=10, sticky=tk.W)
 
@@ -1600,11 +1605,60 @@ def browse_output_path():
     output_path_entry.insert(0, output_file_path)
 
 browse_output_button = tk.Button(root, text="选择导出路径", command=browse_output_path)
-browse_output_button.grid(row=1, column=2, padx=1, pady=10, sticky=tk.W)
+browse_output_button.place(x=660, y=65, anchor='w')
+
+# 创建下拉框-航空公司
+airlines_entry = tk.StringVar(value="")
+airlines_label = tk.Label(root, text="航空公司:")
+airlines_label.place(x=780, y=21, anchor='w')
+airlines_combobox = ttk.Combobox(root, textvariable=airlines_entry, values=airlines, state="readonly",
+                             width=10)
+style = ttk.Style()
+style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
+airlines_combobox["style"] = "TCombobox"
+airlines_combobox.place(x=850, y=21, anchor='w')
+
+# 创建下拉框-代理
+agent_entry = tk.StringVar(value="")
+agent_label = tk.Label(root, text="代      理:")
+agent_label.place(x=780, y=65, anchor='w')
+agent_combobox = ttk.Combobox(root, textvariable=agent_entry, values=agent, state="readonly",
+                             width=10)
+style = ttk.Style()
+style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
+agent_combobox["style"] = "TCombobox"
+agent_combobox.place(x=850, y=65, anchor='w')
+
+# 创建下拉框-机位
+stand_entry = tk.StringVar(value="")
+stand_label = tk.Label(root, text="机      位:")
+stand_label.place(x=970, y=21, anchor='w')
+stand_combobox = ttk.Combobox(root, textvariable=stand_entry, values=stand, state="readonly",
+                             width=10)
+style = ttk.Style()
+style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
+stand_combobox["style"] = "TCombobox"
+stand_combobox.place(x=1040, y=21, anchor='w')
+
+# 创建下拉框-时间
+time_label = tk.Label(root, text="时间范围:")
+time_label.place(x=970, y=65, anchor='w')
+time_entry_1 = tk.Entry(root, width=10)
+time_entry_1.place(x=1040, y=65, anchor='w')
+time_label_mid = tk.Label(root, text="——")
+time_label_mid.place(x=1116, y=65, anchor='w')
+time_entry_2 = tk.Entry(root, width=10)
+time_entry_2.place(x=1150, y=65, anchor='w')
+# stand_combobox = ttk.Combobox(root, textvariable=stand_entry, values=stand, state="readonly",
+#                              width=10)
+# style = ttk.Style()
+# style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
+# stand_combobox["style"] = "TCombobox"
+# stand_combobox.place(x=1040, y=21, anchor='w')
 
 # 创建选项卡
 notebook = ttk.Notebook(root)
-notebook.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W, columnspan=4)
+notebook.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W, columnspan=4)
 
 # 创建第一个选项卡
 tab1 = ttk.Frame(notebook)
@@ -1618,7 +1672,7 @@ input_label.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
 
 # 创建子选项卡
 notebook1 = ttk.Notebook(tab1)
-notebook1.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W, columnspan=4)
+notebook1.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
 #########################################################
 # 创建第一个子选项卡
 tab1_1 = ttk.Frame(notebook1)
@@ -2365,7 +2419,7 @@ entries_col2 = [
     ("C轮挡、反光锥形标志物撤离时间", ""),
     ("D申请拖曳时间", ""),
     ("D廊桥检查及准备工作完成时间", ""),
-    ("D廊桥/客梯车对接完成", ""),
+    # ("D廊桥/客梯车对接完成", ""),
     ("D清洁完成", ""),
     ("D清水完成", ""),
     ("D污水完成", ""),
@@ -2520,9 +2574,6 @@ function_text.insert("6.0", "1.实现了所有过站指标的统计\n"
                             "3.修改了导入文件和导出文件的位置，目前“导出文件”功能暂时没有用处，仅限展示\n"
                             "4.调整了选项卡文本\n\n")
 function_text.pack(pady=10)
-
-notebook.grid(row=9, column=0, padx=10, pady=10, sticky=tk.W)
-# notebook.bind("<<NotebookTabChanged>>", on_tab_change)
 
 # 运行UI循环
 root.mainloop()
