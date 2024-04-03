@@ -319,6 +319,9 @@ def cal_shu(name,dataf,sl,slname,start,end):
             Y.append(a)
         if wczlow < a <= wczup:
             D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
     total(Y, 0, standard, name, T, 0)
     jf(Y, -1, 0)
     perc(D, -1, 0)
@@ -509,7 +512,6 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
                     if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 75:
                         continue
                 except:
-                    print('mode==DEF出错')
                     continue
             if jw == '近' and dataf.loc[i, '出港近远机位'] != '近':
                 continue
@@ -681,8 +683,8 @@ def process_file():
         # id5
         elif "双桥对接作业时间" in selected_options:
             cal_shu("双桥对接作业时间",dataf,2,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
-        # elif "三桥对接作业时间" in selected_options:
-        #    cal_shu("三桥对接作业时间",dataf,3,['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
+        elif "三桥对接作业时间" in selected_options:
+           cal_shu("三桥对接作业时间",dataf,3,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
         elif "客梯车到达机位时间" in selected_options:
             cal("客梯车到达机位时间",dataf,1,0,0,1,0,'客梯车到位','上轮挡开始')
         elif "机务给指令与客梯车对接的衔接时间" in selected_options:
@@ -758,8 +760,8 @@ def process_file():
             cal_shu("双桥撤离作业时间",dataf, 2, '廊桥数量', ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始'],
                     ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束'])
         # id40
-        # elif "三桥撤离作业时间" in selected_options:
-        #    cal_shu("三桥撤离作业时间",dataf,3,['桥1撤离开始','桥2撤离开始','桥3撤离开始'],['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
+        elif "三桥撤离作业时间" in selected_options:
+           cal_shu("三桥撤离作业时间",dataf,3,'廊桥数量',['桥1撤离开始','桥2撤离开始','桥3撤离开始'],['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
         elif "客舱门关闭与最后一辆客梯车撤离的衔接" in selected_options:
             cal("客舱门关闭与最后一辆客梯车撤离的衔接",dataf, 2, 0, 'JS', -1, 0, '关客门',
                 ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
@@ -1550,6 +1552,66 @@ def cal_single(entry, standard, mode, type, weight):
     else:
         return 0
 
+def custom_sort_key(item):
+    order = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'  # 定义排序规则
+    first_letter = item[0] if item else ' '  # 获取元素的首字母，空字符串取空格
+    return order.index(first_letter)
+
+def read_airlines(filepath):  # 获取所有航空公司
+    array = [" "]
+    try:
+        data = pd.read_csv(filepath, header=0, encoding='gbk')
+    except:
+        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        return
+    for i in range(0, len(data)):
+        if not pd.isna(data.loc[i, '离港航班号']) and data.loc[i, '离港航班号'] != '':
+            alname = data.loc[i, '离港航班号']
+            alname = alname[:2]
+        elif not pd.isna(data.loc[i, '进港航班号']) and data.loc[i, '进港航班号'] != '':
+            alname = data.loc[i, '进港航班号']
+            alname = alname[:2]
+        else:
+            alname = ' '
+        if alname not in array:
+            array.append(alname)
+    array = sorted(array[0:], key=custom_sort_key)
+    return array
+
+def read_agent(filepath):  # 获取所有代理
+    array = [" "]
+    try:
+        data = pd.read_csv(filepath, header=0, encoding='gbk')
+    except:
+        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        return
+    for i in range(0, len(data)):
+        if not pd.isna(data.loc[i, '保障代理']) and data.loc[i, '保障代理'] != '':
+            agname = data.loc[i, '保障代理']
+        else:
+            agname = ' '
+        if agname not in array:
+            array.append(agname)
+    array = sorted(array[0:], key=custom_sort_key)
+    return array
+
+def read_stand(filepath):  # 获取所有机位
+    array = [" "]
+    try:
+        data = pd.read_csv(filepath, header=0, encoding='gbk')
+    except:
+        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        return
+    for i in range(0, len(data)):
+        if not pd.isna(data.loc[i, '停机位']) and data.loc[i, '停机位'] != '':
+            sname = data.loc[i, '停机位']
+        else:
+            sname = ' '
+        if sname not in array:
+            array.append(sname)
+    array = sorted(array[0:], key=custom_sort_key)
+    return array
+
 ##############################################################################################
 ## 程序UI设计
 def center_window(window, width, height):
@@ -1580,15 +1642,22 @@ input_path_entry.grid(row=0, column=1, padx=1, pady=10, sticky=tk.W)
 
 # 创建选择导入路径的按钮
 def browse_input_path():
+    global airlines
+    global agent
+    global stand
     input_file_path = filedialog.askopenfilename(title="选择导入文件", filetypes=[("CSV文件", "*.csv")])
     input_path_entry.delete(0, tk.END)
     input_path_entry.insert(0, input_file_path)
-    airlines = []
-#可以加入功能，创建几个变量，然后让后面的下拉框读取
+    airlines = read_airlines(input_file_path)
+    agent = read_agent(input_file_path)
+    stand = read_stand(input_file_path)
+    airlines_combobox['values'] = airlines  # 更新下拉框的值
+    agent_combobox['values'] = agent  # 更新下拉框的值
+    stand_combobox['values'] = stand  # 更新下拉框的值
 
-airlines = ['']
-agent = ['']
-stand = ['']
+airlines = [' ']
+agent = [' ']
+stand = [' ']
 browse_input_button = tk.Button(root, text="选择导入文件", command=browse_input_path)
 browse_input_button.place(x=660, y=21, anchor='w')
 
@@ -1649,12 +1718,6 @@ time_label_mid = tk.Label(root, text="——")
 time_label_mid.place(x=1116, y=65, anchor='w')
 time_entry_2 = tk.Entry(root, width=10)
 time_entry_2.place(x=1150, y=65, anchor='w')
-# stand_combobox = ttk.Combobox(root, textvariable=stand_entry, values=stand, state="readonly",
-#                              width=10)
-# style = ttk.Style()
-# style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
-# stand_combobox["style"] = "TCombobox"
-# stand_combobox.place(x=1040, y=21, anchor='w')
 
 # 创建选项卡
 notebook = ttk.Notebook(root)
@@ -2146,7 +2209,13 @@ qx_process_button.grid(row=3, column=1, pady=20, sticky=tk.E)
 # 处理结果文本框
 result_text = tk.Text(tab2, height=10, width=60)
 result_text.grid(row=4, column=0, columnspan=4, padx=10, pady=10)
+# 创建一个垂直滚动条
+scrollbar_qx = tk.Scrollbar(tab2, orient="vertical", command=result_text.yview)
+scrollbar_qx.grid(row=4, column=4, sticky="ns")
+# 将文本框与滚动条关联
+result_text.config(yscrollcommand=scrollbar_qx.set)
 
+##########################################################################
 # 创建第三个选项卡
 tab3 = ttk.Frame(notebook)
 notebook.add(tab3, text="自定义计算")
@@ -2307,94 +2376,7 @@ tab4_colg_label.grid(row=17, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colg_entry = tk.Entry(tab4, width=10)
 tab4_colg_entry.grid(row=17, column=1, padx=10, pady=1, sticky=tk.W)
 
-
 ##第2列
-# tab4_col001_label = tk.Label(tab4, text="作业")
-# tab4_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col011_label = tk.Label(tab4, text="时间（分钟）")
-# tab4_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col11_label = tk.Label(tab4, text="C轮挡、反光锥形标志物放置时间", wraplength=140, justify="left")
-# tab4_col11_label.grid(row=2, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col11_entry = tk.Entry(tab4, width=10)
-# tab4_col11_entry.grid(row=2, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col11_entry.insert(0, 0)
-# tab4_col12_label = tk.Label(tab4, text="C廊桥/客梯车对接操作时间", wraplength=140, justify="left")
-# tab4_col12_label.grid(row=3, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col12_entry = tk.Entry(tab4, width=10)
-# tab4_col12_entry.grid(row=3, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col12_entry.insert(0, 0)
-# tab4_col13_label = tk.Label(tab4, text="C客舱门开启操作时间", wraplength=140, justify="left")
-# tab4_col13_label.grid(row=4, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col13_entry = tk.Entry(tab4, width=10)
-# tab4_col13_entry.grid(row=4, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col14_label = tk.Label(tab4, text="C客舱门关闭操作时间", wraplength=140, justify="left")
-# tab4_col14_label.grid(row=5, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col14_entry = tk.Entry(tab4, width=10)
-# tab4_col14_entry.grid(row=5, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col15_label = tk.Label(tab4, text="C货舱门关闭操作时间", wraplength=140, justify="left")
-# tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col15_entry = tk.Entry(tab4, width=10)
-# tab4_col15_entry.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
-# # tab4_col15_label = tk.Label(tab4, text="D选择指令对接评分指标")
-# # tab4_col15_label.grid(row=6, column=2, padx=10, pady=1, sticky=tk.W)
-# # tab4_col15_entry = tk.StringVar(value="廊桥")
-# # tab4_combobox3 = ttk.Combobox(tab4, textvariable=tab4_col15_entry, values=["廊桥", "客梯车"], state="readonly", width=5)
-# # tab4_combobox3["style"] = "TCombobox"
-# # tab4_combobox3.grid(row=6, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col16_label = tk.Label(tab4, text="C廊桥/客梯车撤离操作时间", wraplength=140, justify="left")
-# tab4_col16_label.grid(row=7, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col16_entry = tk.Entry(tab4, width=10)
-# tab4_col16_entry.grid(row=7, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col17_label = tk.Label(tab4, text="C牵引车对接操作时间", wraplength=140, justify="left")
-# tab4_col17_label.grid(row=8, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col17_entry = tk.Entry(tab4, width=10)
-# tab4_col17_entry.grid(row=8, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col17_label = tk.Label(tab4, text="C轮挡、反光锥形标志物撤离时间", wraplength=140, justify="left")
-# tab4_col17_label.grid(row=9, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col17_entry = tk.Entry(tab4, width=10)
-# tab4_col17_entry.grid(row=9, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col19_label = tk.Label(tab4, text="D申请拖曳时间", wraplength=140, justify="left")
-# tab4_col19_label.grid(row=10, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col19_entry = tk.Entry(tab4, width=10)
-# tab4_col19_entry.insert(0, 0)
-# tab4_col19_entry.grid(row=10, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1a_label = tk.Label(tab4, text="D廊桥检查及准备工作完成时间", wraplength=140, justify="left")
-# tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1a_entry = tk.Entry(tab4, width=10)
-# tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1b_label = tk.Label(tab4, text="D廊桥/客梯车对接完成", wraplength=140, justify="left")
-# tab4_col1b_label.grid(row=12, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1b_entry = tk.Entry(tab4, width=10)
-# tab4_col1b_entry.grid(row=12, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1c_label = tk.Label(tab4, text="D清洁完成", wraplength=140, justify="left")
-# tab4_col1c_label.grid(row=13, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1c_entry = tk.Entry(tab4, width=10)
-# tab4_col1c_entry.grid(row=13, column=3, padx=10, pady=1, sticky=tk.W)
-# # tab4_col1a_label = tk.Label(tab4, text="航空器机型", wraplength=140, justify="left")
-# # tab4_col1a_label.grid(row=11, column=2, padx=10, pady=1, sticky=tk.W)
-# # tab4_col1a_entry = tk.Entry(tab4, width=10)
-# # tab4_col1a_entry.grid(row=11, column=3, padx=10, pady=1, sticky=tk.W)
-# # tab4_col1a_entry.insert(0, "C")
-# tab4_col1c_label = tk.Label(tab4, text="D清水完成", wraplength=140, justify="left")
-# tab4_col1c_label.grid(row=14, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1c_entry = tk.Entry(tab4, width=10)
-# tab4_col1c_entry.grid(row=14, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1d_label = tk.Label(tab4, text="D污水完成", wraplength=140, justify="left")
-# tab4_col1d_label.grid(row=15, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1d_entry = tk.Entry(tab4, width=10)
-# tab4_col1d_entry.grid(row=15, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1e_label = tk.Label(tab4, text="D配餐完成", wraplength=140, justify="left")
-# tab4_col1e_label.grid(row=16, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1e_entry = tk.Entry(tab4, width=10)
-# tab4_col1e_entry.grid(row=16, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1f_label = tk.Label(tab4, text="D加油完成", wraplength=140, justify="left")
-# tab4_col1f_label.grid(row=17, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1f_entry = tk.Entry(tab4, width=10)
-# tab4_col1f_entry.grid(row=17, column=3, padx=10, pady=1, sticky=tk.W)
-# tab4_col1g_label = tk.Label(tab4, text="D登机完成并关闭登机口", wraplength=140, justify="left")
-# tab4_col1g_label.grid(row=18, column=2, padx=10, pady=1, sticky=tk.W)
-# tab4_col1g_entry = tk.Entry(tab4, width=10)
-# tab4_col1g_entry.grid(row=18, column=3, padx=10, pady=1, sticky=tk.W)
 def create_entry_labels(tab, entries,col):
     entry_dict = {}  # 创建一个空字典用于存储输入框对象
 
@@ -2408,6 +2390,7 @@ def create_entry_labels(tab, entries,col):
         entry_dict[label_text] = entry  # 将输入框对象与标签文本关联起来
 
     return entry_dict
+
 entries_col2 = [
     ("C轮挡、反光锥形标志物放置时间", ""),
     ("C廊桥/客梯车对接操作时间", ""),
