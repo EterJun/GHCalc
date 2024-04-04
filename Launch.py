@@ -659,6 +659,33 @@ def process_file():
     except:
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
         return
+
+    if airlines_entry.get() != ' ':
+        dataf['进港航班号'] = dataf['进港航班号'].fillna('NA')
+        dataf['离港航班号'] = dataf['离港航班号'].fillna('NA')
+        dataf = dataf[(dataf['进港航班号'].str[:2] == airlines_entry.get()) | (dataf['离港航班号'].str[:2] == airlines_entry.get())]
+    if agent_entry.get() != ' ':
+        dataf = dataf[dataf['保障代理'] == agent_entry.get()]
+    if stand_entry.get() != ' ':
+        dataf = dataf[dataf['停机位'] == stand_entry.get()]
+    if flight_entry.get() != ' ':
+        dataf = dataf[dataf['航班性质'] == flight_entry.get()]
+
+    if time_entry_1.get() != '':
+        dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+        print(dataf['航班时间'])
+        date_start = pd.to_datetime(time_entry_1.get())
+        print(date_start)
+        dataf = dataf[dataf['航班时间'] >= date_start]
+    if time_entry_2.get() != '':
+        try:
+            dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+            date_end = pd.to_datetime(time_entry_2.get())
+        except:
+            date_end = pd.to_datetime(time_entry_2.get())
+        dataf = dataf[dataf['航班时间'] <= date_end]
+    dataf = dataf.reset_index(drop=True)
+
     # 获取勾选的选项
     selected_options = []
     selected_options.append(selected_option1.get())
@@ -666,7 +693,6 @@ def process_file():
     selected_options.append(selected_option_3.get())
     selected_options.append(selected_option_4.get())
     selected_options.append(selected_option_5.get())
-
     try:
         if "拖曳飞机到达出港机位" in selected_options:
             cal("过站机务到位", dataf, 1, 0, 0, 1, 0, '飞机入位机务到位', '上轮挡开始')
@@ -1555,7 +1581,8 @@ def cal_single(entry, standard, mode, type, weight):
 def custom_sort_key(item):
     order = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'  # 定义排序规则
     first_letter = item[0] if item else ' '  # 获取元素的首字母，空字符串取空格
-    return order.index(first_letter)
+    second_letter = item[1] if len(item) > 1 else ' '  # 获取元素的第二个字母，空字符串取空格
+    return order.index(first_letter) * len(order) + order.index(second_letter)
 
 def read_airlines(filepath):  # 获取所有航空公司
     array = [" "]
@@ -1595,6 +1622,7 @@ def read_agent(filepath):  # 获取所有代理
     array = sorted(array[0:], key=custom_sort_key)
     return array
 
+#机位的顺序可能要重新调一下
 def read_stand(filepath):  # 获取所有机位
     array = [" "]
     try:
@@ -1677,7 +1705,7 @@ browse_output_button = tk.Button(root, text="选择导出路径", command=browse
 browse_output_button.place(x=660, y=65, anchor='w')
 
 # 创建下拉框-航空公司
-airlines_entry = tk.StringVar(value="")
+airlines_entry = tk.StringVar(value=" ")
 airlines_label = tk.Label(root, text="航空公司:")
 airlines_label.place(x=780, y=21, anchor='w')
 airlines_combobox = ttk.Combobox(root, textvariable=airlines_entry, values=airlines, state="readonly",
@@ -1688,7 +1716,7 @@ airlines_combobox["style"] = "TCombobox"
 airlines_combobox.place(x=850, y=21, anchor='w')
 
 # 创建下拉框-代理
-agent_entry = tk.StringVar(value="")
+agent_entry = tk.StringVar(value=" ")
 agent_label = tk.Label(root, text="代      理:")
 agent_label.place(x=780, y=65, anchor='w')
 agent_combobox = ttk.Combobox(root, textvariable=agent_entry, values=agent, state="readonly",
@@ -1699,7 +1727,7 @@ agent_combobox["style"] = "TCombobox"
 agent_combobox.place(x=850, y=65, anchor='w')
 
 # 创建下拉框-机位
-stand_entry = tk.StringVar(value="")
+stand_entry = tk.StringVar(value=" ")
 stand_label = tk.Label(root, text="机      位:")
 stand_label.place(x=970, y=21, anchor='w')
 stand_combobox = ttk.Combobox(root, textvariable=stand_entry, values=stand, state="readonly",
@@ -1708,6 +1736,17 @@ style = ttk.Style()
 style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
 stand_combobox["style"] = "TCombobox"
 stand_combobox.place(x=1040, y=21, anchor='w')
+
+# 创建下拉框-航班性质
+flight_entry = tk.StringVar(value=" ")
+flight_label = tk.Label(root, text="航班性质:")
+flight_label.place(x=1160, y=21, anchor='w')
+flight_combobox = ttk.Combobox(root, textvariable=stand_entry, values=[' ', '国内', '国际', '地区'], state="readonly",
+                             width=10)
+style = ttk.Style()
+style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
+flight_combobox["style"] = "TCombobox"
+flight_combobox.place(x=1230, y=21, anchor='w')
 
 # 创建下拉框-时间
 time_label = tk.Label(root, text="时间范围:")
