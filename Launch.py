@@ -27,13 +27,13 @@ result_df = pd.DataFrame(
 
 # 定义计算满足比例函数
 def total(Y, min, max, name, T, ccsv):
+    global result_df
     total = len(Y) + T
     count = sum(min <= value <= max for value in Y) + T
     try:
         percentage = count / total
         data = [name, total, percentage]
         # 将结果添加到数据框
-        global result_df
         result_df.loc[ccsv, result_df.columns[:3]] = data
     except:
         return
@@ -41,8 +41,10 @@ def total(Y, min, max, name, T, ccsv):
 
 # 定义计算百分位值和比例函数
 def perc(Y, mode, ccsv):
+    global result_df
     if len(Y) == 0:
         messagebox.showinfo("错误", "无符合条件的计算位次值样本！")
+        result_df = result_df.iloc[0:0]
         return
     mean = pd.Series(Y).mean()
     xs = [pd.Series(Y).quantile(0.05 * factor) for factor in range(1, 20)]
@@ -56,7 +58,6 @@ def perc(Y, mode, ccsv):
     else:
         return
     data = [mean] + xs[::-1] + ys[::-1]
-    global result_df
     result_df.loc[ccsv, result_df.columns[7:46]] = data
     #result_df = result_df.append(pd.Series(data, index=result_df.columns[7:46]), ignore_index=True)
 
@@ -711,12 +712,6 @@ def process_file():
     if not input_file_path:
         messagebox.showinfo("提示", "未选择导入路径，请重试。")
         return
-    # 获取用户输入的导出路径
-    output_file_path = output_path_entry.get()
-    # 检查是否选择了导出路径
-    # if not output_file_path:
-    #     messagebox.showinfo("提示", "未选择导出路径，请重试。")
-    #     return
     #读取csv文件
     try:
         dataf = pd.read_csv(input_file_path, header=0, encoding='gbk',na_filter=False)
@@ -972,9 +967,6 @@ def process_file():
         return
     if result_df.empty:
         return
-    #if
-    #尝试写没有样本时就直接跳过画图
-    #方法1，修改cal函数，return时直接将result_df清空
 
     #运行
     try:
@@ -1050,15 +1042,15 @@ def process_data():
 
 def process_user():
     try:
-        countcsv = 0
         input_file_path = input_path_entry.get()
         if not input_file_path:
             messagebox.showinfo("提示", "未选择导入路径，请重试。")
             return
         output_file_path = output_path_entry.get()
+        error = 0
         if not output_file_path:
-            messagebox.showinfo("提示", "未选择导入路径，请重试。")
-            return
+            messagebox.showinfo("警告", "未选择导出路径，本次计算结果不会保存至CSV文件。")
+            error = 1
         try:
             dataf = pd.read_csv(input_file_path, header=0, encoding='gbk')
         except:
@@ -1103,23 +1095,35 @@ def process_user():
             messagebox.showinfo("错误", "指标类型输入有误！请检查！")
             return
 
-        # 保存csv文件
         try:
-            result_df.to_csv(output_file_path, encoding='gbk', index=False)
+            name = result_df.iloc[0, 0]
+            plot_window = tk.Toplevel(root)
+            plot_window.title(f"计算结果_{name}")
+            # 调用函数创建Matplotlib图形并嵌入Tkinter窗口
+            create_plot(result_df, plot_window)
+            # result_df.to_csv(output_file_path, encoding='gbk', index=False)
         except Exception as e:
-            # 如果保存失败，尝试另存为新文件
-            try:
-                # 获取文件名和路径
-                file_name, file_extension = os.path.splitext(output_file_path)
-                new_output_file_path = f"{file_name}_1{file_extension}"
-                result_df.to_csv(new_output_file_path, encoding='gbk', index=False)
-                messagebox.showinfo("错误",
-                                    f"保存文件时出现错误: {str(e)}\n文件保存到新路径: {new_output_file_path}")
-            except Exception as e:
-                messagebox.showerror("错误", f"自定义计算时出现错误: {str(e)}")
+            messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
+            return
 
-        # 显示成功消息
-        messagebox.showinfo("成功", "计算完成！文件已保存！")
+        # 保存csv文件
+        if error == 0:
+            try:
+                result_df.to_csv(output_file_path, encoding='gbk', index=False)
+            except Exception as e:
+                # 如果保存失败，尝试另存为新文件
+                try:
+                    # 获取文件名和路径
+                    file_name, file_extension = os.path.splitext(output_file_path)
+                    new_output_file_path = f"{file_name}_1{file_extension}"
+                    result_df.to_csv(new_output_file_path, encoding='gbk', index=False)
+                    messagebox.showinfo("错误",
+                                        f"保存文件时出现错误: {str(e)}\n文件保存到新路径: {new_output_file_path}")
+                except Exception as e:
+                    messagebox.showerror("错误", f"自定义计算时出现错误: {str(e)}")
+
+            # 显示成功消息
+            messagebox.showinfo("成功", "计算完成！文件已保存！")
 
     except Exception as e:
         # 如果出现异常，显示错误消息
@@ -1772,19 +1776,54 @@ def read_stand(filepath):  # 获取所有机位
     array = sorted(array[0:], key=custom_sort_key)
     return array
 
-def mean_calc():
+def meanscore():
+    #导入数据模块
+    file_path = input_path_entry.get()
+    if not file_path:
+        messagebox.showinfo("提示", "未选择导入路径，请重试。")
+        return
+    try:
+        dataf = pd.read_csv(file_path, header=0, encoding='gbk', na_filter=False)
+        dataf['客梯车数量'] = dataf['客梯车数量'].astype(str)
+    except:
+        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        return
+
+    if airlines_entry.get() != ' ':
+        dataf['进港航班号'] = dataf['进港航班号'].fillna('NA')
+        dataf['离港航班号'] = dataf['离港航班号'].fillna('NA')
+        dataf = dataf[(dataf['进港航班号'].str[:2] == airlines_entry.get()) | (
+                    dataf['离港航班号'].str[:2] == airlines_entry.get())]
+    if agent_entry.get() != ' ':
+        dataf = dataf[dataf['保障代理'] == agent_entry.get()]
+    if stand_entry.get() != ' ':
+        dataf = dataf[dataf['停机位'] == stand_entry.get()]
+    if flight_entry.get() != ' ':
+        dataf = dataf[dataf['航班性质'] == flight_entry.get()]
+
+    if time_entry_1.get() != '':
+        dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+        print(dataf['航班时间'])
+        date_start = pd.to_datetime(time_entry_1.get())
+        print(date_start)
+        dataf = dataf[dataf['航班时间'] >= date_start]
+    if time_entry_2.get() != '':
+        try:
+            dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+            date_end = pd.to_datetime(time_entry_2.get())
+        except:
+            date_end = pd.to_datetime(time_entry_2.get())
+        dataf = dataf[dataf['航班时间'] <= date_end]
+    dataf = dataf.reset_index(drop=True)
+    ###############################################################################
+    #分数计算模块
+    for i in range(0, len(dataf)):
+        #这里写分数计算
+        continue
     return
 
 ##############################################################################################
 ## 程序UI设计
-def center_window(window, width, height):
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-
-    x = (screen_width - width) // 2
-    y = (screen_height - height - 100) // 2
-
-    window.geometry(f"{width}x{height}+{x}+{y}")
 
 # 创建主UI窗口
 root = tk.Tk()
@@ -1795,7 +1834,6 @@ root.configure(bg="#f0f0f0")
 
 # 调用函数使窗口居中
 root.state('zoomed')
-# center_window(root, 550, 680)
 
 # 创建一个标签和输入框用于导入路径
 input_label = tk.Label(root, text="导入路径:")
@@ -2595,12 +2633,6 @@ tab4_cola_label = tk.Label(tab4, text="A出港首辆摆渡车到达登机口")
 tab4_cola_label.grid(row=11, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_cola_entry = tk.Entry(tab4, width=10)
 tab4_cola_entry.grid(row=11, column=1, padx=10, pady=1, sticky=tk.W)
-# tab4_cola_label = tk.Label(tab4, text="B选择评分指标")
-# tab4_cola_label.grid(row=11, column=0, padx=10, pady=1, sticky=tk.W)
-# tab4_cola_entry = tk.StringVar(value="廊桥")
-# tab4_combobox2 = ttk.Combobox(tab4, textvariable=tab4_cola_entry, values=["廊桥", "客梯车"], state="readonly", width=5)
-# tab4_combobox2["style"] = "TCombobox"
-# tab4_combobox2.grid(row=11, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colb_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=200, justify="left")
 tab4_colb_label.grid(row=12, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colb_entry = tk.Entry(tab4, width=10)
@@ -2609,12 +2641,6 @@ tab4_colc_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位"
 tab4_colc_label.grid(row=13, column=0, padx=10, pady=1, sticky=tk.W)
 tab4_colc_entry = tk.Entry(tab4, width=10)
 tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
-# tab4_colc_label = tk.Label(tab4, text="航后航班进港正常")
-# tab4_colc_label.grid(row=13, column=0, padx=10, pady=1, sticky=tk.W)
-# tab4_colc_entry = tk.StringVar(value="是")
-# tab4_combobox2 = ttk.Combobox(tab4, textvariable=tab4_colc_entry, values=["是", "否"], state="readonly", width=5)
-# tab4_combobox2["style"] = "TCombobox"
-# tab4_combobox2.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
 # tab4_cold_label = tk.Label(tab4, text="进港滑行时间在12分钟内")
 # tab4_cold_label.grid(row=14, column=0, padx=10, pady=1, sticky=tk.W)
 # tab4_cold_entry = tk.StringVar(value="是")
@@ -2754,6 +2780,11 @@ tab4_c4r5_entry = entry_dict_col4["接到推出指令时是否已对接"]
 tab4_c4r6_entry = entry_dict_col4["廊桥/客梯车数量"]
 
 # 在计算平均分的时候，出来的整体分析界面可以把这几项的符合率也附上
+tab4_col401_label = tk.Label(tab4, text="作业")
+tab4_col401_label.grid(row=8, column=6, padx=10, pady=1, sticky=tk.W)
+tab4_col411_label = tk.Label(tab4, text="时间（分钟）")
+tab4_col411_label.grid(row=8, column=7, padx=10, pady=1, sticky=tk.W)
+
 tab4_F1_label = tk.Label(tab4, text="过站航班起飞正常(ATOT-STD-30min)", wraplength=210, justify="left")
 tab4_F1_label.grid(row=9, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_F1_entry = tk.Entry(tab4, width=10)
@@ -2795,11 +2826,198 @@ tab4_col1c_button2.grid(row=20, column=7, padx=10, pady=1, sticky=tk.W, columnsp
 tab4_col1c_entry = tk.Entry(tab4, width=10)
 tab4_col1c_entry.grid(row=20, column=9, padx=10, pady=1, sticky=tk.W)
 
-tab4_col1d_button2 = tk.Button(tab4, text="计算所有航班平均分", command=mean_calc, width=18, bg="#5cb85c", fg="white")
+tab4_col1d_button2 = tk.Button(tab4, text="计算所有航班平均分", command=meanscore, width=18, bg="#5cb85c", fg="white")
 tab4_col1d_button2.grid(row=21, column=7, padx=10, pady=40, sticky=tk.W, columnspan=2)
 tab4_col1d_entry = tk.Entry(tab4, width=10)
 tab4_col1d_entry.grid(row=21, column=9, padx=10, pady=40, sticky=tk.W)
+######################################################################################################
+##创建过站航班评分权重选项卡
+tab_gzweight = ttk.Frame(notebook)
+notebook.add(tab_gzweight, text="过站航班评分权重设置")
 
+##第一列
+tab_gzweight_col0_label = tk.Label(tab_gzweight, text="作业")
+tab_gzweight_col0_label.grid(row=1, column=0, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col01_label = tk.Label(tab_gzweight, text="时间（分钟）")
+def create_entry_labels(tab, entries,col):
+    entry_dict = {}  # 创建一个空字典用于存储输入框对象
+
+    for i, entry_data in enumerate(entries, start=2):
+        label_text, default_value = entry_data
+        label = tk.Label(tab, text=label_text, wraplength=210, justify="left")
+        label.grid(row=i, column=(col*2-2), padx=10, pady=1, sticky=tk.W)
+        entry = tk.Entry(tab, width=10)
+        entry.grid(row=i, column=(col*2-1), padx=10, pady=1, sticky=tk.W)
+        entry.insert(0, default_value)
+        entry_dict[label_text] = entry  # 将输入框对象与标签文本关联起来
+
+    return entry_dict
+
+entries_col1 = [
+    ("A拖曳飞机到达出港机位", ""),
+    ("A引导车到达指定引导位置", ""),
+    ("A机务到达机位", ""),
+    ("A客梯车到达机位", ""),
+    ("A进港首辆摆渡车到达机位", ""),
+    ("A地服接机人员到位", ""),
+    ("A装卸人员及装卸设备到位", ""),
+    ("A清洁人员到达机位", ""),
+    ("A机组和乘务到达机位", ""),
+    ("A出港首辆摆渡车到达登机口", ""),
+    ("A出港最后一辆摆渡车到达远机位", ""),
+    ("A牵引车、机务、拖把到达机位", ""),
+    ("B登机口开放", ""),
+    ("B行李装载开始", ""),
+    ("B通知翻找行李", ""),
+    ("B实挑实捡行李", "")
+]
+tab_gzweight_col001_label = tk.Label(tab_gzweight, text="作业")
+tab_gzweight_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col011_label = tk.Label(tab_gzweight, text="时间（分钟）")
+tab_gzweight_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
+entry_dict_col1 = create_entry_labels(tab_gzweight, entries_col1,1)
+
+# 通过标签文本定位对应的输入框
+tab_gzweight_c1r1_entry = entry_dict_col1["A拖曳飞机到达出港机位"]
+tab_gzweight_c1r2_entry = entry_dict_col1["A引导车到达指定引导位置"]
+tab_gzweight_c1r3_entry = entry_dict_col1["A机务到达机位"]
+tab_gzweight_c1r4_entry = entry_dict_col1["A客梯车到达机位"]
+tab_gzweight_c1r5_entry = entry_dict_col1["A进港首辆摆渡车到达机位"]
+tab_gzweight_c1r6_entry = entry_dict_col1["A地服接机人员到位"]
+tab_gzweight_c1r7_entry = entry_dict_col1["A装卸人员及装卸设备到位"]
+tab_gzweight_c1r8_entry = entry_dict_col1["A清洁人员到达机位"]
+tab_gzweight_c1r9_entry = entry_dict_col1["A机组和乘务到达机位"]
+tab_gzweight_c1r10_entry = entry_dict_col1["A出港首辆摆渡车到达登机口"]
+tab_gzweight_c1r11_entry = entry_dict_col1["A出港最后一辆摆渡车到达远机位"]
+tab_gzweight_c1r12_entry = entry_dict_col1["A牵引车、机务、拖把到达机位"]
+tab_gzweight_c1r13_entry = entry_dict_col1["B登机口开放"]
+tab_gzweight_c1r14_entry = entry_dict_col1["B行李装载开始"]
+tab_gzweight_c1r15_entry = entry_dict_col1["B通知翻找行李"]
+tab_gzweight_c1r16_entry = entry_dict_col1["B实挑实捡行李"]
+
+##第2列
+
+
+entries_col2 = [
+    ("C轮挡、反光锥形标志物放置时间", ""),
+    ("C廊桥/客梯车对接操作时间", ""),
+    ("C客舱门开启操作时间", ""),
+    ("C客舱门关闭操作时间", ""),
+    ("C货舱门关闭操作时间", ""),
+    ("C廊桥/客梯车撤离操作时间", ""),
+    ("C牵引车对接操作时间", ""),
+    ("C轮挡、反光锥形标志物撤离时间", ""),
+    ("D申请拖曳时间", ""),
+    ("D廊桥检查及准备工作完成时间", ""),
+    # ("D廊桥/客梯车对接完成", ""),
+    ("D清洁完成", ""),
+    ("D清水完成", ""),
+    ("D污水完成", ""),
+    ("D配餐完成", ""),
+    ("D加油完成", ""),
+    ("D登机完成并关闭登机口", "")
+]
+tab_gzweight_col001_label = tk.Label(tab_gzweight, text="作业")
+tab_gzweight_col001_label.grid(row=1, column=2, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col011_label = tk.Label(tab_gzweight, text="时间（分钟）")
+tab_gzweight_col011_label.grid(row=1, column=3, padx=10, pady=1, sticky=tk.W)
+entry_dict_col2 = create_entry_labels(tab_gzweight, entries_col2,2)
+
+# 通过标签文本定位对应的输入框
+tab_gzweight_c2r1_entry = entry_dict_col2["C轮挡、反光锥形标志物放置时间"]
+tab_gzweight_c2r2_entry = entry_dict_col2["C廊桥/客梯车对接操作时间"]
+tab_gzweight_c2r3_entry = entry_dict_col2["C客舱门开启操作时间"]
+tab_gzweight_c2r4_entry = entry_dict_col2["C客舱门关闭操作时间"]
+tab_gzweight_c2r5_entry = entry_dict_col2["C货舱门关闭操作时间"]
+tab_gzweight_c2r6_entry = entry_dict_col2["C廊桥/客梯车撤离操作时间"]
+tab_gzweight_c2r7_entry = entry_dict_col2["C牵引车对接操作时间"]
+tab_gzweight_c2r8_entry = entry_dict_col2["C轮挡、反光锥形标志物撤离时间"]
+tab_gzweight_c2r9_entry = entry_dict_col2["D申请拖曳时间"]
+tab_gzweight_c2r10_entry = entry_dict_col2["D廊桥检查及准备工作完成时间"]
+tab_gzweight_c2r12_entry = entry_dict_col2["D清洁完成"]
+tab_gzweight_c2r13_entry = entry_dict_col2["D清水完成"]
+tab_gzweight_c2r14_entry = entry_dict_col2["D污水完成"]
+tab_gzweight_c2r15_entry = entry_dict_col2["D配餐完成"]
+tab_gzweight_c2r16_entry = entry_dict_col2["D加油完成"]
+tab_gzweight_c3r1_entry = entry_dict_col2["D登机完成并关闭登机口"]
+
+#第三列
+entries_col3 = [
+    ("D舱单上传完成", ""),
+    ("D客舱门关闭", ""),
+    ("D货舱门关闭", ""),
+    ("D引导车引导信息通报", ""),
+    ("E机务给对接指令-廊桥/客梯车对接", ""),
+    ("E廊桥/客梯车对接完成-开启客舱门", ""),
+    ("E开货门-卸载行李货邮", ""),
+    ("E旅客下机完毕-清洁作业开始", ""),
+    ("E客舱门关闭-最后一个廊桥/客梯车撤离", ""),
+    ("E关舱门-首次RDY", ""),
+    ("E接到指令-推离机位", ""),
+    ("E引导车接到指令-到达指定位置", ""),
+]
+tab_gzweight_col002_label = tk.Label(tab_gzweight, text="作业")
+tab_gzweight_col002_label.grid(row=1, column=4, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col012_label = tk.Label(tab_gzweight, text="时间（分钟）")
+tab_gzweight_col012_label.grid(row=1, column=5, padx=10, pady=1, sticky=tk.W)
+entry_dict_col3 = create_entry_labels(tab_gzweight, entries_col3,3)
+
+tab_gzweight_c3r2_entry = entry_dict_col3["D舱单上传完成"]
+tab_gzweight_c3r4_entry = entry_dict_col3["D客舱门关闭"]
+tab_gzweight_c3r5_entry = entry_dict_col3["D货舱门关闭"]
+tab_gzweight_c3r6_entry = entry_dict_col3["D引导车引导信息通报"]
+tab_gzweight_c3r7_entry = entry_dict_col3["E机务给对接指令-廊桥/客梯车对接"]
+tab_gzweight_c3r8_entry = entry_dict_col3["E廊桥/客梯车对接完成-开启客舱门"]
+tab_gzweight_c3r9_entry = entry_dict_col3["E开货门-卸载行李货邮"]
+tab_gzweight_c3r10_entry = entry_dict_col3["E旅客下机完毕-清洁作业开始"]
+tab_gzweight_c3r11_entry = entry_dict_col3["E客舱门关闭-最后一个廊桥/客梯车撤离"]
+tab_gzweight_c3r12_entry = entry_dict_col3["E关舱门-首次RDY"]
+tab_gzweight_c3r13_entry = entry_dict_col3["E接到指令-推离机位"]
+tab_gzweight_c3r14_entry = entry_dict_col3["E引导车接到指令-到达指定位置"]
+
+# 在计算平均分的时候，出来的整体分析界面可以把这几项的符合率也附上
+tab_gzweight_F1_label = tk.Label(tab_gzweight, text="过站航班起飞正常(ATOT-STD-30min)", wraplength=210, justify="left")
+tab_gzweight_F1_label.grid(row=9, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F1_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F1_entry.grid(row=9, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F2_label = tk.Label(tab_gzweight, text="COBT符合性(AOBT-COBT)", wraplength=210, justify="left")
+tab_gzweight_F2_label.grid(row=10, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F2_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F2_entry.grid(row=10, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F3_label = tk.Label(tab_gzweight, text="CTOT符合性(ATOT-CTOT)", wraplength=210, justify="left")
+tab_gzweight_F3_label.grid(row=11, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F3_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F3_entry.grid(row=11, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F4_label = tk.Label(tab_gzweight, text="进港滑行时间(AIBT-ALDT)", wraplength=210, justify="left")
+tab_gzweight_F4_label.grid(row=12, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F4_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F4_entry.grid(row=12, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F5_label = tk.Label(tab_gzweight, text="离港滑行时间(ATOT-AOBT)", wraplength=210, justify="left")
+tab_gzweight_F5_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F5_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F5_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F6_label = tk.Label(tab_gzweight, text="放行延误时间", wraplength=210, justify="left")
+tab_gzweight_F6_label.grid(row=14, column=6, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_F6_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_F6_entry.grid(row=14, column=7, padx=10, pady=1, sticky=tk.W)
+
+tab_gzweight_col1b_button1 = tk.Button(tab_gzweight, text="读取数据", command=readcsv)
+tab_gzweight_col1b_button1.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col1b_label = tk.Label(tab_gzweight, text="目标\n航班序号", wraplength=140)
+tab_gzweight_col1b_label.grid(row=19, column=8, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col1b_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_col1b_entry.grid(row=19, column=9, padx=10, pady=1, sticky=tk.W)
+tab_gzweight_col1b_entry.insert(0, 1)
+tab_gzweight_col1c_button2 = tk.Button(tab_gzweight, text="计算评分", command=cal_score, width=18, bg="#5cb85c", fg="white")
+tab_gzweight_col1c_button2.grid(row=20, column=7, padx=10, pady=1, sticky=tk.W, columnspan=2)
+tab_gzweight_col1c_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_col1c_entry.grid(row=20, column=9, padx=10, pady=1, sticky=tk.W)
+
+tab_gzweight_col1d_button2 = tk.Button(tab_gzweight, text="计算所有航班平均分", command=meanscore, width=18, bg="#5cb85c", fg="white")
+tab_gzweight_col1d_button2.grid(row=21, column=7, padx=10, pady=40, sticky=tk.W, columnspan=2)
+tab_gzweight_col1d_entry = tk.Entry(tab_gzweight, width=10)
+tab_gzweight_col1d_entry.grid(row=21, column=9, padx=10, pady=40, sticky=tk.W)
+######################################################################################################
 # 创建第五个选项卡
 tab5 = ttk.Frame(notebook)
 notebook.add(tab5, text="版本信息")
