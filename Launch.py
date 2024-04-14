@@ -1,11 +1,13 @@
 import os
+import shutil
 import tkinter as tk
-from tkinter import filedialog, messagebox
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
 import pandas as pd
 from datetime import datetime
 import warnings
-from plot import create_plot
+from plot import create_plot, create_plot_score
+# 写一个requirement
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 result_df = pd.DataFrame(
@@ -345,6 +347,66 @@ def cal_shu(name,dataf,sl,slname,start,end):
     total(Y, 0, standard, name, T, 0)
     jf(Y, -1, 0)
     perc(D, -1, 0)
+
+def cal_shu2(name,dataf,sl,slname,start,end):
+    # 确定正常值和位次值范围
+    valueread = pd.read_csv('正常值上下界读取.csv', header=0, encoding='gbk')
+    standard = valueread.loc[valueread['涉及字段名称'] == name, '计算标准阈值'].values[0]
+    zczup = valueread.loc[valueread['涉及字段名称'] == name, '正常值范围上界'].values[0]
+    zczlow = valueread.loc[valueread['涉及字段名称'] == name, '正常值范围下界'].values[0]
+    wczup = valueread.loc[valueread['涉及字段名称'] == name, '统计位次值范围上界'].values[0]
+    wczlow = valueread.loc[valueread['涉及字段名称'] == name, '统计位次值范围下界'].values[0]
+    if pd.isna(zczup):
+        zczup = 120
+    if pd.isna(zczlow):
+        zczlow = 0
+    if pd.isna(wczup):
+        wczup = zczup
+    if pd.isna(wczlow):
+        wczlow = 0
+
+    Y = []
+    D = []
+    T = 0
+    stime = 0
+    etime = 0
+
+    for i in range(0, len(dataf)):
+        if slname == "廊桥数量" or slname == "客梯车数量":
+            if sl == 12:
+                if ((str(dataf.loc[i, slname]) != '1' and str(dataf.loc[i, slname])!= '1.0') or
+                        (sl == 2 and str(dataf.loc[i, slname]) != '2' and str(dataf.loc[i, slname]) != '2.0')):
+                    continue
+            if sl == 3 and str(dataf.loc[i, slname]) != '3' and str(dataf.loc[i, slname]) != '3.0':
+                continue
+        sary = []
+        eary = []
+        for sname in start:
+            if dataf.loc[i, sname] != '':
+                sary.append(dataf.loc[i, sname])
+        for ename in end:
+            if dataf.loc[i, ename] != '':
+                eary.append(dataf.loc[i, ename])
+        try:
+            stime = min(sary)
+            etime = max(eary)
+            a = (ct(etime) - ct(stime))
+        except:
+            continue
+        if a < -1380:
+            a += 1440
+        if a == 0:
+            a += 1
+        if zczlow <= a <= zczup:
+            Y.append(a)
+        if wczlow < a <= wczup:
+            D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
+    total(Y, standard, zczup, name, T, 0)
+    jf(Y, 1, 0)
+    perc(D, 1, 0)
 
 # 特殊计算模块——是否载客加油及加油完成时间
 def cal_jiayou(name,dataf,zaike,start,end):
@@ -733,9 +795,7 @@ def process_file():
 
     if time_entry_1.get() != '':
         dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
-        print(dataf['航班时间'])
         date_start = pd.to_datetime(time_entry_1.get())
-        print(date_start)
         dataf = dataf[dataf['航班时间'] >= date_start]
     if time_entry_2.get() != '':
         try:
@@ -770,8 +830,10 @@ def process_file():
             cal("轮挡、反光锥形标志物放置操作时间-ABC",dataf,2,'ABC','ALL',-1,1,['上轮挡开始','摆反光锥开始'],['上轮挡结束','摆反光锥结束'])
         elif "轮挡、反光锥形标志物放置操作时间-DEF" in selected_options:
             cal("轮挡、反光锥形标志物放置操作时间-DEF",dataf,2,'DEF','ALL',-1,1,['上轮挡开始','摆反光锥开始'],['上轮挡结束','摆反光锥结束'])
-        elif "廊桥检查及准备工作完成时间" in selected_options:
-            cal("廊桥检查及准备工作完成时间", dataf, 1, 0, 0, 1, 0, '廊桥检查及准备工作完成', '上轮挡开始')
+        elif "廊桥检查及准备工作完成时间-单双桥" in selected_options:
+            cal_shu2("廊桥检查及准备工作完成时间-单双桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['上轮挡开始'])
+        elif "廊桥检查及准备工作完成时间-三桥" in selected_options:
+            cal_shu2("廊桥检查及准备工作完成时间-三桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['上轮挡开始'])
         elif "机务给指令与廊桥对接的衔接时间" in selected_options:
             cal("机务给指令与廊桥对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['桥1对接开始','桥2对接开始','桥3对接开始'])
         elif "单桥对接作业时间" in selected_options:
@@ -1145,7 +1207,7 @@ def gettime(data,period,i,mode):  # 用于获取节点的开始时间或完成�
     elif mode == 1:
         return get_etime
 
-def caltime(data,i,start,end,mode,mode1=0):
+def caltime(data,i,start,end,mode,mode1=0,mode2='nan'):
     # A是两个单指标，B为都是多指标，D为其中有一个为多指标
     if mode == 'A':
         try:
@@ -1179,7 +1241,7 @@ def readcsv():
         messagebox.showinfo("提示", "未选择导入路径，请重试。")
         return
     try:
-        dataf_1 = pd.read_csv(input_file_path, header=0, encoding='gbk')
+        dataf_1 = pd.read_csv(input_file_path, header=0, encoding='gbk', na_filter=False)
     except:
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
         return
@@ -1203,9 +1265,7 @@ def readcsv():
 
     if time_entry_1.get() != '':
         dataf_1['航班时间'] = pd.to_datetime(dataf_1['航班时间'])
-        print(dataf_1['航班时间'])
         date_start = pd.to_datetime(time_entry_1.get())
-        print(date_start)
         dataf_1 = dataf_1[dataf_1['航班时间'] >= date_start]
     if time_entry_2.get() != '':
         try:
@@ -1239,13 +1299,13 @@ def readcsv():
     c2r1 = caltime(dataf_1, rownum, ['上轮挡开始','摆反光锥开始'], ['上轮挡结束','摆反光锥结束'], 'B',1)
     c2r2 = caltime(dataf_1, rownum, ['桥1对接开始','桥2对接开始','桥3对接开始','客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],
                    ['桥1对接结束','桥2对接结束','桥3对接结束','客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], 'B',1)
-    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+    if len(dataf_1.loc[rownum, '开客门操作时间']) == 0:
         c2r3 = ''
     else: c2r3 = int(dataf_1.loc[rownum, '开客门操作时间'])
-    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+    if len(dataf_1.loc[rownum, '开客门操作时间']) == 0:
         c2r4 = ''
     else: c2r4 = int(dataf_1.loc[rownum, '关客门操作时间'])
-    if pd.isna(dataf_1.loc[rownum, '开客门操作时间']):
+    if len(dataf_1.loc[rownum, '开客门操作时间']) == 0:
         c2r5 = ''
     else: c2r5 = int(dataf_1.loc[rownum, '关货门操作时间'])
     c2r6 = caltime(dataf_1, rownum, ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始', '车1撤离开始', '车2撤离开始', '车3撤离开始'],
@@ -1295,10 +1355,10 @@ def readcsv():
     except: c4F7 = ''
 
     #额外信息读取
-    if pd.isna(dataf_1.loc[rownum, '进港近远机位']):
+    if len(dataf_1.loc[rownum, '进港近远机位']) == 0:
         c4r1 = ''
     else: c4r1 = dataf_1.loc[rownum, '进港近远机位']
-    if pd.isna(dataf_1.loc[rownum, '机型大类']):
+    if len(dataf_1.loc[rownum, '机型大类']) == 0:
         c4r2 = ''
     else: c4r2 = dataf_1.loc[rownum, '机型大类']
     try:
@@ -1322,11 +1382,11 @@ def readcsv():
             c4r5 = '是'
         else: c4r5 = ''
     except: c4r5 = ''
-    if pd.isna(dataf_1.loc[rownum, '廊桥数量']) and pd.isna(dataf_1.loc[rownum, '客梯车数量']):
+    if len(dataf_1.loc[rownum, '廊桥数量'])==0 and len(dataf_1.loc[rownum, '客梯车数量']) == 0:
         c4r6 = ''
-    elif pd.isna(dataf_1.loc[rownum, '廊桥数量']) or dataf_1.loc[rownum, '廊桥数量'] == '':
+    elif len(dataf_1.loc[rownum, '廊桥数量']) == 0 or dataf_1.loc[rownum, '廊桥数量'] == '':
         c4r6 = int(dataf_1.loc[rownum, '客梯车数量'])
-    elif pd.isna(dataf_1.loc[rownum, '客梯车数量']):
+    elif len(dataf_1.loc[rownum, '客梯车数量']) == 0:
         c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
     else:
         c4r6 = int(dataf_1.loc[rownum, '廊桥数量'])
@@ -1470,15 +1530,13 @@ def weight_r(file, colname, rowname, weight_name):
     weight = float(weight.strip('%')) / 100
     return weight
 
+def sd(name, valueread):
+    standard = int(valueread.loc[valueread['涉及字段名称'] == name, '计算标准阈值'].values[0])
+    return standard
+
 def cal_score():
     # 读取大类权重
-    wg = pd.read_csv('正常值上下界读取.csv', header=0, encoding='gbk')
-    w_a = wg.loc[wg['大类类型'] == 'A人员/车辆/设备到位符合性', '类型权重'].values[0]
-    w_b = wg.loc[wg['大类类型'] == 'B作业开始时间符合性', '类型权重'].values[0]
-    w_c = wg.loc[wg['大类类型'] == 'C作业操作时间符合性', '类型权重'].values[0]
-    w_d = wg.loc[wg['大类类型'] == 'D作业完成时间符合性', '类型权重'].values[0]
-    w_e = wg.loc[wg['大类类型'] == 'E作业衔接时间符合性', '类型权重'].values[0]
-    w_f = wg.loc[wg['大类类型'] == 'F局方关注指标', '类型权重'].values[0]
+    wg = pd.read_csv('航班评分权重.csv', header=0, encoding='gbk')
     # 航班属性读取
     sum = 0   # 总分初始化
     jiwei = tab4_c4r1_entry.get()
@@ -1488,13 +1546,20 @@ def cal_score():
     shifouduijie = tab4_c4r5_entry.get()
     qcshumu = tab4_c4r6_entry.get()
     # 权重读取
+    w_a = float((wg.loc[wg['大类类型'] == 'A人员/车辆/设备到位符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_b = float((wg.loc[wg['大类类型'] == 'B作业开始时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_c = float((wg.loc[wg['大类类型'] == 'C作业操作时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_d = float((wg.loc[wg['大类类型'] == 'D作业完成时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_e = float((wg.loc[wg['大类类型'] == 'E作业衔接时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_f = float((wg.loc[wg['大类类型'] == 'F局方关注指标', '类型权重'].values[0]).strip('%')) / 100
+
     a1j = weight_r(wg, '节点名称', '拖曳飞机到达出港机位时间', '近机位权重') * w_a
     a1w = weight_r(wg, '节点名称', '拖曳飞机到达出港机位时间', '远机位权重') * w_a
     a2j = weight_r(wg, '节点名称', '引导车到达指定引导位置', '近机位权重') * w_a
     a2w = weight_r(wg, '节点名称', '引导车到达指定引导位置', '远机位权重') * w_a
     a3j = weight_r(wg, '节点名称', '机务到达机位', '近机位权重') * w_a
     a3w = weight_r(wg, '节点名称', '机务到达机位', '远机位权重') * w_a
-    a4w = weight_r(wg, '节点名称', '客梯车到达机位', '近机位权重') * w_a
+    a4w = weight_r(wg, '节点名称', '客梯车到达机位', '远机位权重') * w_a
     a5w = weight_r(wg, '节点名称', '进港首辆摆渡车到达机位', '远机位权重') * w_a
     a6j = weight_r(wg, '节点名称', '地服接机人员到位', '近机位权重') * w_a
     a6w = weight_r(wg, '节点名称', '地服接机人员到位', '远机位权重') * w_a
@@ -1504,7 +1569,7 @@ def cal_score():
     a8w = weight_r(wg, '节点名称', '清洁人员到达机位', '远机位权重') * w_a
     a9j = weight_r(wg, '节点名称', '机组和乘务到达机位', '近机位权重') * w_a
     a9w = weight_r(wg, '节点名称', '机组和乘务到达机位', '远机位权重') * w_a
-    a10w = weight_r(wg, '节点名称', '出港首辆摆渡车到达登机口', '近机位权重') * w_a
+    a10w = weight_r(wg, '节点名称', '出港首辆摆渡车到达登机口', '远机位权重') * w_a
     a11w = weight_r(wg, '节点名称', '出港最后一辆摆渡车到达远机位', '远机位权重') * w_a
     a12j = weight_r(wg, '节点名称', '牵引车、机务、拖把到达机位', '近机位权重') * w_a
     a12w = weight_r(wg, '节点名称', '牵引车、机务、拖把到达机位', '远机位权重') * w_a
@@ -1552,46 +1617,49 @@ def cal_score():
     f5 = weight_r(wg, '节点名称', '离港滑行时间符合性', '权重') * w_f
     f6 = weight_r(wg, '节点名称', '放行延误时间', '权重') * w_f
 
+    ## standard可以设置成读取形式
     ## A类指标
+    v = pd.read_csv('正常值上下界读取.csv', header=0, encoding='gbk')
+
     if jiwei == '近':
         if jixin == 'F':
-            sum += cal_single(tab4_col1_entry, 120, 1, 'A', a1j)
+            sum += cal_single(tab4_col1_entry, sd('拖曳飞机到达出港机位时间-F', v), 1, 'A', a1j)
         else:
-            sum += cal_single(tab4_col1_entry, 90, 1, 'A', a1j)
-        sum += cal_single(tab4_col2_entry, 0, 1, 'A', a2j)
-        sum += cal_single(tab4_col3_entry, 5, 1, 'A', a3j)
-        sum += cal_single(tab4_col6_entry, 5, 1, 'A', a6j)
-        sum += cal_single(tab4_col7_entry, 5, 1, 'A', a7j)
-        sum += cal_single(tab4_col8_entry, 0, 1, 'A', a8j)
+            sum += cal_single(tab4_col1_entry, sd('拖曳飞机到达出港机位时间-其他', v), 1, 'A', a1j)
+        sum += cal_single(tab4_col2_entry, sd('航空器引导车到位时间', v), 1, 'A', a2j)
+        sum += cal_single(tab4_col3_entry, sd('过站机务到位', v), 1, 'A', a3j)
+        sum += cal_single(tab4_col6_entry, sd('地服接机人员到位时间', v), 1, 'A', a6j)
+        sum += cal_single(tab4_col7_entry, sd('装卸人员及装卸设备到位时间', v), 1, 'A', a7j)
+        sum += cal_single(tab4_col8_entry, sd('清洁人员到位时间', v), 1, 'A', a8j)
         if jixin == 'F':
-            sum += cal_single(tab4_col9_entry, 70, 1, 'A', a9j)
+            sum += cal_single(tab4_col9_entry, sd('机组到位时间-F', v), 1, 'A', a9j)
         else:
-            sum += cal_single(tab4_col9_entry, 60, 1, 'A', a9j)
-        sum += cal_single(tab4_colc_entry, 10, 1, 'A', a12j)
+            sum += cal_single(tab4_col9_entry, sd('机组到位时间-其他', v), 1, 'A', a9j)
+        sum += cal_single(tab4_colc_entry, sd('牵引车、机务、拖把到位时间', v), 1, 'A', a12j)
     elif jiwei == '远':
         if jixin == 'F':
-            sum += cal_single(tab4_col1_entry, 120, 1, 'A', a1w)
+            sum += cal_single(tab4_col1_entry, sd('拖曳飞机到达出港机位时间-F', v), 1, 'A', a1w)
         else:
-            sum += cal_single(tab4_col1_entry, 90, 1, 'A', a1w)
-        sum += cal_single(tab4_col2_entry, 0, 1, 'A', a2w)
-        sum += cal_single(tab4_col3_entry, 5, 1, 'A', a3w)
-        sum += cal_single(tab4_col4_entry, 5, 1, 'A', a4w)
-        sum += cal_single(tab4_col5_entry, 5, 1, 'A', a5w)
-        sum += cal_single(tab4_col6_entry, 5, 1, 'A', a6w)
-        sum += cal_single(tab4_col7_entry, 5, 1, 'A', a7w)
-        sum += cal_single(tab4_col8_entry, 0, 1, 'A', a8w)
+            sum += cal_single(tab4_col1_entry, sd('拖曳飞机到达出港机位时间-其他', v), 1, 'A', a1w)
+        sum += cal_single(tab4_col2_entry, sd('航空器引导车到位时间', v), 1, 'A', a2w)
+        sum += cal_single(tab4_col3_entry, sd('过站机务到位', v), 1, 'A', a3w)
+        sum += cal_single(tab4_col4_entry, sd('客梯车到达机位时间', v), 1, 'A', a4w)
+        sum += cal_single(tab4_col5_entry, sd('首辆摆渡车到达机位时间', v), 1, 'A', a5w)
+        sum += cal_single(tab4_col6_entry, sd('地服接机人员到位时间', v), 1, 'A', a6w)
+        sum += cal_single(tab4_col7_entry, sd('装卸人员及装卸设备到位时间', v), 1, 'A', a7w)
+        sum += cal_single(tab4_col8_entry, sd('清洁人员到位时间', v), 1, 'A', a8w)
         if jixin == 'F':
-            sum += cal_single(tab4_col9_entry, 70, 1, 'A', a9w)
+            sum += cal_single(tab4_col9_entry, sd('机组到位时间-F', v), 1, 'A', a9w)
         else:
-            sum += cal_single(tab4_col9_entry, 60, 1, 'A', a9w)
+            sum += cal_single(tab4_col9_entry, sd('机组到位时间-其他', v), 1, 'A', a9w)
         if jixin == 'F':
-            sum += cal_single(tab4_cola_entry, 60, 1, 'A', a10w)
+            sum += cal_single(tab4_cola_entry, sd('首辆摆渡车到达登机口时间-F', v), 1, 'A', a10w)
         elif jixin == 'D' or jixin == 'E':
-            sum += cal_single(tab4_cola_entry, 50, 1, 'A', a10w)
+            sum += cal_single(tab4_cola_entry, sd('首辆摆渡车到达登机口时间-DE', v), 1, 'A', a10w)
         else:
-            sum += cal_single(tab4_cola_entry, 45, 1, 'A', a10w)
-        sum += cal_single(tab4_colb_entry, 7, 1, 'A', a11w)
-        sum += cal_single(tab4_colc_entry, 10, 1, 'A', a12w)
+            sum += cal_single(tab4_cola_entry, sd('首辆摆渡车到达登机口时间-ABC', v), 1, 'A', a10w)
+        sum += cal_single(tab4_colb_entry, sd('出港最后一辆摆渡车到达远机位时间', v), 1, 'A', a11w)
+        sum += cal_single(tab4_colc_entry, sd('牵引车、机务、拖把到位时间', v), 1, 'A', a12w)
     else:
         messagebox.showerror("错误", "机位信息输入有误，请重新输入")
         return
@@ -1599,134 +1667,134 @@ def cal_score():
     ## B类指标
     if jiwei == '近':
         if jixin == 'F':
-            sum += cal_single(tab4_cold_entry, 40, 1, 'B', b1)
+            sum += cal_single(tab4_cold_entry, sd('近机位登机口开放时间-F', v), 1, 'B', b1)
         else:
-            sum += cal_single(tab4_cold_entry, 35, 1, 'B', b1)
+            sum += cal_single(tab4_cold_entry, sd('近机位登机口开放时间-其他', v), 1, 'B', b1)
     elif jiwei == '远':
-        sum += cal_single(tab4_cold_entry, 45, 1, 'B', b1)
+        sum += cal_single(tab4_cold_entry, sd('远机位登机口开放时间', v), 1, 'B', b1)
     else:
         messagebox.showerror("错误", "机位信息输入有误，请重新输入")
         return
-    sum += cal_single(tab4_cole_entry, 20, 1, 'B', b2)
+    sum += cal_single(tab4_cole_entry, sd('行李装载开始时间', v), 1, 'B', b2)
     if jixin == 'F':
-        sum += cal_single(tab4_colf_entry, 25, 1, 'B', b3)
+        sum += cal_single(tab4_colf_entry, sd('通知翻找行李时间-F', v), 1, 'B', b3)
     elif jixin == 'D' or jixin == 'E':
-        sum += cal_single(tab4_colf_entry, 20, 1, 'B', b3)
+        sum += cal_single(tab4_colf_entry, sd('通知翻找行李时间-DE', v), 1, 'B', b3)
     else:
-        sum += cal_single(tab4_colf_entry, 15, 1, 'B', b3)
+        sum += cal_single(tab4_colf_entry, sd('通知翻找行李时间-ABC', v), 1, 'B', b3)
     if jixin == 'E' or jixin == 'F':
-        sum += cal_single(tab4_colg_entry, 15, 1, 'B', b4)
+        sum += cal_single(tab4_colg_entry, sd('实挑实捡行李时间-EF', v), 1, 'B', b4)
     else:
-        sum += cal_single(tab4_colg_entry, 10, 1, 'B', b4)
+        sum += cal_single(tab4_colg_entry, sd('实挑实捡行李时间-CD', v), 1, 'B', b4)
 
     ## C类指标
     if jixin == 'D' or jixin == 'E' or jixin == 'F':
-        sum += cal_single(tab4_c2r1_entry, 4, 2, 'C', c1)
+        sum += cal_single(tab4_c2r1_entry, sd('轮挡、反光锥形标志物放置操作时间-DEF', v), 2, 'C', c1)
     else:
-        sum += cal_single(tab4_c2r1_entry, 3, 2, 'C', c1)
+        sum += cal_single(tab4_c2r1_entry, sd('轮挡、反光锥形标志物放置操作时间-ABC', v), 2, 'C', c1)
     if jiwei == '近':
         if qcshumu == '1':
-            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('单桥对接作业时间', v), 2, 'C', c2)
         elif qcshumu == '2':
-            sum += cal_single(tab4_c2r2_entry, 4, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('双桥对接作业时间', v), 2, 'C', c2)
         elif qcshumu == '3':
-            sum += cal_single(tab4_c2r2_entry, 8, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('三桥对接作业时间', v), 2, 'C', c2)
         else:
-            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('单桥对接作业时间', v), 2, 'C', c2)
     elif jiwei == '远':
         if qcshumu == '1':
-            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('单客梯车对接操作时间', v), 2, 'C', c2)
         elif int(qcshumu) > 1:
-            sum += cal_single(tab4_c2r2_entry, 4, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('多客梯车对接操作时间', v), 2, 'C', c2)
         else:
-            sum += cal_single(tab4_c2r2_entry, 2, 2, 'C', c2)
+            sum += cal_single(tab4_c2r2_entry, sd('单客梯车对接操作时间', v), 2, 'C', c2)
     else:
         messagebox.showerror("错误", "机位信息输入有误，请重新输入")
         return
-    sum += cal_single(tab4_c2r3_entry, 1, 2, 'C', c3)
-    sum += cal_single(tab4_c2r4_entry, 1, 2, 'C', c4)
-    sum += cal_single(tab4_c2r5_entry, 2, 2, 'C', c5)
+    sum += cal_single(tab4_c2r3_entry, sd('客舱门开启操作时间', v), 2, 'C', c3)
+    sum += cal_single(tab4_c2r4_entry, sd('客舱门关闭操作时间', v), 2, 'C', c4)
+    sum += cal_single(tab4_c2r5_entry, sd('货舱门关闭操作时间', v), 2, 'C', c5)
     if jiwei == '近':
         if qcshumu == '1':
-            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('单桥撤离作业时间', v), 2, 'C', c6)
         elif qcshumu == '2':
-            sum += cal_single(tab4_c2r6_entry, 4, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('双桥撤离作业时间', v), 2, 'C', c6)
         elif qcshumu == '3':
-            sum += cal_single(tab4_c2r6_entry, 6, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('三桥撤离作业时间', v), 2, 'C', c6)
         else:
-            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('单桥撤离作业时间', v), 2, 'C', c6)
     elif jiwei == '远':
         if qcshumu == '1':
-            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('单客梯车撤离操作时间', v), 2, 'C', c6)
         elif int(qcshumu) > 1:
-            sum += cal_single(tab4_c2r6_entry, 4, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('多客梯车撤离操作时间', v), 2, 'C', c6)
         else:
-            sum += cal_single(tab4_c2r6_entry, 2, 2, 'C', c6)
+            sum += cal_single(tab4_c2r6_entry, sd('单客梯车撤离操作时间', v), 2, 'C', c6)
     else:
         messagebox.showerror("错误", "机位信息输入有误，请重新输入")
         return
-    sum += cal_single(tab4_c2r7_entry, 3, 2, 'C', c7)
+    sum += cal_single(tab4_c2r7_entry, sd('牵引车对接操作时间', v), 2, 'C', c7)
     if jixin == 'D' or jixin == 'E' or jixin == 'F':
-        sum += cal_single(tab4_c2r8_entry, 4, 2, 'C', c8)
+        sum += cal_single(tab4_c2r8_entry, sd('轮挡、反光锥形标志物撤离操作时间-DEF', v), 2, 'C', c8)
     else:
-        sum += cal_single(tab4_c2r8_entry, 3, 2, 'C', c8)
+        sum += cal_single(tab4_c2r8_entry, sd('轮挡、反光锥形标志物撤离操作时间-ABC', v), 2, 'C', c8)
 
     ## D类指标
     if jixin == 'E' or jixin == 'F':
-        sum += cal_single(tab4_c2r9_entry, 150, 1, 'D', d1)
+        sum += cal_single(tab4_c2r9_entry, sd('申请拖曳时间-EF', v), 1, 'D', d1)
     else:
-        sum += cal_single(tab4_c2r9_entry, 120, 1, 'D', d1)
+        sum += cal_single(tab4_c2r9_entry, sd('申请拖曳时间-其他', v), 1, 'D', d1)
     if jiwei == '近':
         if qcshumu == '1' or qcshumu == '2':
-            sum += cal_single(tab4_c2r10_entry, 10, 1, 'D', d2)
+            sum += cal_single(tab4_c2r10_entry, sd('廊桥检查及准备工作完成时间-单双桥', v), 1, 'D', d2)
         elif qcshumu == '3':
-            sum += cal_single(tab4_c2r10_entry, 20, 1, 'D', d2)
+            sum += cal_single(tab4_c2r10_entry, sd('廊桥检查及准备工作完成时间-三桥', v), 1, 'D', d2)
     else:
         sum += 0
-    sum += cal_single(tab4_c2r12_entry, 40, 1, 'D', d3)
-    sum += cal_single(tab4_c2r13_entry, 20, 1, 'D', d4)
-    sum += cal_single(tab4_c2r14_entry, 20, 1, 'D', d5)
+    sum += cal_single(tab4_c2r12_entry, sd('客舱清洁完成时间', v), 1, 'D', d3)
+    sum += cal_single(tab4_c2r13_entry, sd('清水操作完成时间', v), 1, 'D', d4)
+    sum += cal_single(tab4_c2r14_entry, sd('污水操作完成时间', v), 1, 'D', d5)
     if jiacan == '是':
-        sum += cal_single(tab4_c2r15_entry, 10, 1, 'D', d6)
+        sum += cal_single(tab4_c2r15_entry, sd('餐食及机供品配供完成时间（加餐）', v), 1, 'D', d6)
     elif jiacan == '否':
-        sum += cal_single(tab4_c2r15_entry, 40, 1, 'D', d6)
+        sum += cal_single(tab4_c2r15_entry, sd('餐食及机供品配供完成时间（未加餐）', v), 1, 'D', d6)
     else:
-        sum += cal_single(tab4_c2r15_entry, 40, 1, 'D', d6)
+        sum += cal_single(tab4_c2r15_entry, sd('餐食及机供品配供完成时间（未加餐）', v), 1, 'D', d6)
     if zaikejiayou == '是':
-        sum += cal_single(tab4_c2r16_entry, 10, 1, 'D', d7)
+        sum += cal_single(tab4_c2r16_entry, sd('载客航油加注完成时间', v), 1, 'D', d7)
     elif zaikejiayou == '否':
-        sum += cal_single(tab4_c2r16_entry, 40, 1, 'D', d7)
+        sum += cal_single(tab4_c2r16_entry, sd('非载客航油加注完成时间', v), 1, 'D', d7)
     else:
-        sum += cal_single(tab4_c2r16_entry, 40, 1, 'D', d7)
+        sum += cal_single(tab4_c2r16_entry, sd('非载客航油加注完成时间', v), 1, 'D', d7)
 
-    sum += cal_single(tab4_c3r1_entry, 10, 1, 'D', d8)
-    sum += cal_single(tab4_c3r2_entry, 8, 1, 'D', d9)
-    sum += cal_single(tab4_c3r4_entry, 5, 1, 'D', d10)
-    sum += cal_single(tab4_c3r5_entry, 5, 1, 'D', d11)
-    sum += cal_single(tab4_c3r6_entry, 10, 1, 'D', d12)
+    sum += cal_single(tab4_c3r1_entry, sd('登机口关闭时间', v), 1, 'D', d8)
+    sum += cal_single(tab4_c3r2_entry, sd('舱单上传完成时间', v), 1, 'D', d9)
+    sum += cal_single(tab4_c3r4_entry, sd('客舱门关闭完成时间', v), 1, 'D', d10)
+    sum += cal_single(tab4_c3r5_entry, sd('货舱门关闭完成时间', v), 1, 'D', d11)
+    sum += cal_single(tab4_c3r6_entry, sd('引导车引导信息通报', v), 1, 'D', d12)
 
     ## E类指标
-    sum += cal_single(tab4_c3r7_entry, 1, 2, 'E', e1)
-    sum += cal_single(tab4_c3r8_entry, 1, 2, 'E', e2)
+    sum += cal_single(tab4_c3r7_entry, sd('机务给指令与廊桥对接的衔接时间', v), 2, 'E', e1)
+    sum += cal_single(tab4_c3r8_entry, sd('廊桥对接完成至客舱门开启', v), 2, 'E', e2)
     if jixin == 'D' or jixin == 'E' or jixin == 'F':
-        sum += cal_single(tab4_c3r9_entry, 3, 2, 'E', e3)
+        sum += cal_single(tab4_c3r9_entry, sd('开货门至卸行李货邮时间-DEF', v), 2, 'E', e3)
     else:
-        sum += cal_single(tab4_c3r9_entry, 2, 2, 'E', e3)
-    sum += cal_single(tab4_c3r10_entry, 2, 2, 'E', e4)
+        sum += cal_single(tab4_c3r9_entry, sd('开货门至卸行李货邮时间-ABC', v), 2, 'E', e3)
+    sum += cal_single(tab4_c3r10_entry, sd('清洁作业开始时间', v), 2, 'E', e4)
     if jiwei == '近':
-        sum += cal_single(tab4_c3r11_entry, 3, 2, 'E', e5)
-    elif jiwei =='远':
-        sum += cal_single(tab4_c3r11_entry, 2, 2, 'E', e5)
+        sum += cal_single(tab4_c3r11_entry, sd('客舱门关闭与最后一个廊桥撤离的衔接', v), 2, 'E', e5)
+    elif jiwei == '远':
+        sum += cal_single(tab4_c3r11_entry, sd('客舱门关闭与最后一辆客梯车撤离的衔接', v), 2, 'E', e5)
     else:
         sum += 0
-    sum += cal_single(tab4_c3r12_entry, 2, 2, 'E', e6)
+    sum += cal_single(tab4_c3r12_entry, sd('关舱门至首次RDY时间', v), 2, 'E', e6)
     if shifouduijie == '是':
-        sum += cal_single(tab4_c3r13_entry, 1, 2, 'E', e7)
+        sum += cal_single(tab4_c3r13_entry, sd('接到指令到航空器开始推离机位时间(已对接)', v), 2, 'E', e7)
     elif shifouduijie == '否':
-        sum += cal_single(tab4_c3r13_entry, 3, 2, 'E', e7)
+        sum += cal_single(tab4_c3r13_entry, sd('接到指令到航空器开始推离机位时间(未对接)', v), 2, 'E', e7)
     else:
-        sum += cal_single(tab4_c3r13_entry, 3, 2, 'E', e7)
-    sum += cal_single(tab4_c3r14_entry, 10, 2, 'E', e8)
+        sum += cal_single(tab4_c3r13_entry, sd('接到指令到航空器开始推离机位时间(未对接)', v), 2, 'E', e7)
+    sum += cal_single(tab4_c3r14_entry, sd('引导车接到指令至到达指定位置', v), 2, 'E', e8)
 
     ## F类指标
     sum += cal_single(tab4_F1_entry, 0, 2, 'F', f1)
@@ -1748,12 +1816,12 @@ def cal_score():
             sum += 0
     except:
         sum += 0
-    sum += cal_single(tab4_F4_entry, 12, 2, 'F', f4)
+    sum += cal_single(tab4_F4_entry, sd('进港滑行时间', v), 2, 'F', f4)
     # 指标若有三个打分标准，则分成两段，每段的权重为原权重/2
-    sum += cal_single(tab4_F5_entry, 25, 2, 'F', f5)
-    sum += cal_single(tab4_F5_entry, 30, 2, 'F', f5)
-    sum += cal_single(tab4_F6_entry, 0, 2, 'F', f6)
-    sum += cal_single(tab4_F6_entry, 5, 2, 'F', f6)
+    sum += cal_single(tab4_F5_entry, sd('离港滑行时间阈值1', v), 2, 'F', (f5/2))
+    sum += cal_single(tab4_F5_entry, sd('离港滑行时间阈值2', v), 2, 'F', (f5/2))
+    sum += cal_single(tab4_F6_entry, 0, 2, 'F', (f6/2))
+    sum += cal_single(tab4_F6_entry, 5, 2, 'F', (f6/2))
 
     score = round(sum * 100, 3)
     tab4_col1c_entry.delete(0, tk.END)
@@ -1773,6 +1841,32 @@ def cal_single(entry, standard, mode, type, weight):
     if type in type_to_score:
         score = type_to_score[type]
 
+    else:
+        return 0
+    score = score * weight
+
+    if time == '':
+        return 0  # 输入为空时不算分
+    elif time == 'Y':
+        return score
+    elif mode == 1 and time >= standard:
+        return score
+    elif mode == 2 and time <= standard:
+        return score
+    else:
+        return 0
+
+def cal_single_ne(time, standard, mode, type, weight):
+    # standard为标准阈值，mode为指标类型（1是高于阈值满足，2是低于阈值满足）
+    # type为指标类别，weight为指标权重
+    try:
+        time = int(time)
+    except:
+        time = time
+
+    type_to_score = {'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1}
+    if type in type_to_score:
+        score = type_to_score[type]
     else:
         return 0
     score = score * weight
@@ -1862,7 +1956,81 @@ def meanscore():
     except:
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
         return
+    ###################################################################################################
+    # 权重读取
+    wg = pd.read_csv('航班评分权重.csv', header=0, encoding='gbk')
+    w_a = float((wg.loc[wg['大类类型'] == 'A人员/车辆/设备到位符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_b = float((wg.loc[wg['大类类型'] == 'B作业开始时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_c = float((wg.loc[wg['大类类型'] == 'C作业操作时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_d = float((wg.loc[wg['大类类型'] == 'D作业完成时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_e = float((wg.loc[wg['大类类型'] == 'E作业衔接时间符合性', '类型权重'].values[0]).strip('%')) / 100
+    w_f = float((wg.loc[wg['大类类型'] == 'F局方关注指标', '类型权重'].values[0]).strip('%')) / 100
 
+    a1j = weight_r(wg, '节点名称', '拖曳飞机到达出港机位时间', '近机位权重') * w_a
+    a1w = weight_r(wg, '节点名称', '拖曳飞机到达出港机位时间', '远机位权重') * w_a
+    a2j = weight_r(wg, '节点名称', '引导车到达指定引导位置', '近机位权重') * w_a
+    a2w = weight_r(wg, '节点名称', '引导车到达指定引导位置', '远机位权重') * w_a
+    a3j = weight_r(wg, '节点名称', '机务到达机位', '近机位权重') * w_a
+    a3w = weight_r(wg, '节点名称', '机务到达机位', '远机位权重') * w_a
+    a4w = weight_r(wg, '节点名称', '客梯车到达机位', '远机位权重') * w_a
+    a5w = weight_r(wg, '节点名称', '进港首辆摆渡车到达机位', '远机位权重') * w_a
+    a6j = weight_r(wg, '节点名称', '地服接机人员到位', '近机位权重') * w_a
+    a6w = weight_r(wg, '节点名称', '地服接机人员到位', '远机位权重') * w_a
+    a7j = weight_r(wg, '节点名称', '装卸人员及装卸设备到位', '近机位权重') * w_a
+    a7w = weight_r(wg, '节点名称', '装卸人员及装卸设备到位', '远机位权重') * w_a
+    a8j = weight_r(wg, '节点名称', '清洁人员到达机位', '近机位权重') * w_a
+    a8w = weight_r(wg, '节点名称', '清洁人员到达机位', '远机位权重') * w_a
+    a9j = weight_r(wg, '节点名称', '机组和乘务到达机位', '近机位权重') * w_a
+    a9w = weight_r(wg, '节点名称', '机组和乘务到达机位', '远机位权重') * w_a
+    a10w = weight_r(wg, '节点名称', '出港首辆摆渡车到达登机口', '远机位权重') * w_a
+    a11w = weight_r(wg, '节点名称', '出港最后一辆摆渡车到达远机位', '远机位权重') * w_a
+    a12j = weight_r(wg, '节点名称', '牵引车、机务、拖把到达机位', '近机位权重') * w_a
+    a12w = weight_r(wg, '节点名称', '牵引车、机务、拖把到达机位', '远机位权重') * w_a
+
+    b1 = weight_r(wg, '节点名称', '登机口开放', '权重') * w_b
+    b2 = weight_r(wg, '节点名称', '行李装载开始', '权重') * w_b
+    b3 = weight_r(wg, '节点名称', '通知翻找行李', '权重') * w_b
+    b4 = weight_r(wg, '节点名称', '实挑实减行李', '权重') * w_b
+
+    c1 = weight_r(wg, '节点名称', '轮挡、反光锥形标志物放置时间', '权重') * w_c
+    c2 = weight_r(wg, '节点名称', '廊桥/客梯车对接操作时间', '权重') * w_c
+    c3 = weight_r(wg, '节点名称', '客舱门开启操作时间', '权重') * w_c
+    c4 = weight_r(wg, '节点名称', '客舱门关闭操作时间', '权重') * w_c
+    c5 = weight_r(wg, '节点名称', '货舱门关闭操作时间', '权重') * w_c
+    c6 = weight_r(wg, '节点名称', '廊桥/客梯车撤离操作时间', '权重') * w_c
+    c7 = weight_r(wg, '节点名称', '牵引车对接操作时间', '权重') * w_c
+    c8 = weight_r(wg, '节点名称', '轮挡、反光锥形标志物撤离时间', '权重') * w_c
+
+    d1 = weight_r(wg, '节点名称', '申请拖曳时间', '权重') * w_d
+    d2 = weight_r(wg, '节点名称', '廊桥检查及准备工作完成时间', '权重') * w_d
+    d3 = weight_r(wg, '节点名称', '清洁完成', '权重') * w_d
+    d4 = weight_r(wg, '节点名称', '清水完成', '权重') * w_d
+    d5 = weight_r(wg, '节点名称', '污水完成', '权重') * w_d
+    d6 = weight_r(wg, '节点名称', '配餐完成', '权重') * w_d
+    d7 = weight_r(wg, '节点名称', '加油完成', '权重') * w_d
+    d8 = weight_r(wg, '节点名称', '登机完成并关闭登机口', '权重') * w_d
+    d9 = weight_r(wg, '节点名称', '舱单上传完成', '权重') * w_d
+    d10 = weight_r(wg, '节点名称', '客舱门关闭', '权重') * w_d
+    d11 = weight_r(wg, '节点名称', '货舱门关闭', '权重') * w_d
+    d12 = weight_r(wg, '节点名称', '引导车引导信息通报', '权重') * w_d
+
+    e1 = weight_r(wg, '节点名称', '机务给对接指令-廊桥/客梯车对接', '权重') * w_e
+    e2 = weight_r(wg, '节点名称', '廊桥/客梯车对接完成-开启客舱门', '权重') * w_e
+    e3 = weight_r(wg, '节点名称', '开货门-卸载行李货邮', '权重') * w_e
+    e4 = weight_r(wg, '节点名称', '旅客下机完毕-清洁作业开始', '权重') * w_e
+    e5 = weight_r(wg, '节点名称', '客舱门关闭-最后一个廊桥/客梯车撤离', '权重') * w_e
+    e6 = weight_r(wg, '节点名称', '关舱门-首次RDY', '权重') * w_e
+    e7 = weight_r(wg, '节点名称', '接到指令-推离机位', '权重') * w_e
+    e8 = weight_r(wg, '节点名称', '引导车接到指令-到达指定位置', '权重') * w_e
+
+    f1 = weight_r(wg, '节点名称', '过站航班起飞正常', '权重') * w_f
+    f2 = weight_r(wg, '节点名称', 'COBT符合性', '权重') * w_f
+    f3 = weight_r(wg, '节点名称', 'CTOT符合性', '权重') * w_f
+    f4 = weight_r(wg, '节点名称', '进港滑行时间符合性', '权重') * w_f
+    f5 = weight_r(wg, '节点名称', '离港滑行时间符合性', '权重') * w_f
+    f6 = weight_r(wg, '节点名称', '放行延误时间', '权重') * w_f
+    ###############################################################################################################
+    # 根据条件筛选数据
     if airlines_entry.get() != ' ':
         dataf['进港航班号'] = dataf['进港航班号'].fillna('NA')
         dataf['离港航班号'] = dataf['离港航班号'].fillna('NA')
@@ -1877,9 +2045,7 @@ def meanscore():
 
     if time_entry_1.get() != '':
         dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
-        print(dataf['航班时间'])
         date_start = pd.to_datetime(time_entry_1.get())
-        print(date_start)
         dataf = dataf[dataf['航班时间'] >= date_start]
     if time_entry_2.get() != '':
         try:
@@ -1889,12 +2055,366 @@ def meanscore():
             date_end = pd.to_datetime(time_entry_2.get())
         dataf = dataf[dataf['航班时间'] <= date_end]
     dataf = dataf.reset_index(drop=True)
-    ###############################################################################
-    #分数计算模块
-    s = 0
+    #############################################################################################################
+    # 各指标数值计算
+    score = []
     for i in range(0, len(dataf)):
-        #这里写分数计算
-        continue
+        s = 0
+        c1r1 = caltime(dataf, i, '拖曳到位', '目标离港时间', 'A')
+        c1r2 = caltime(dataf, i, '引导车到位', 'ELDT', 'A')
+        c1r3 = caltime(dataf, i, '飞机入位机务到位', '上轮挡开始', 'A')
+        c1r4 = caltime(dataf, i, '客梯车到位', '上轮挡开始', 'A')
+        c1r5 = caltime(dataf, i, '首辆摆渡车到机位', '上轮挡开始', 'A')
+        c1r6 = caltime(dataf, i, '地服到位', '上轮挡开始', 'A')
+        c1r7 = caltime(dataf, i, '装卸人员到位', '上轮挡开始', 'A')
+        c1r8 = caltime(dataf, i, '清洁人员到位', '旅客下机完毕', 'A')
+        c1r9 = caltime(dataf, i, '首名机组到机位', '目标离港时间', 'A')
+        c1r10 = caltime(dataf, i, '首辆摆渡车到达登机口', '目标离港时间', 'A')
+        c1r11 = caltime(dataf, i, '最后一辆摆渡车到机位', '目标离港时间', 'A')
+        c1r12 = caltime(dataf, i, ['TSAT'], ['牵引车到位', '拖把到位', '飞机推出机务到位'],
+                        'D')  # 节点倒过来了，输入时需输入相反数
+        # B类指标
+        c1r13 = caltime(dataf, i, '登机口开放', '目标离港时间', 'A')
+        c1r14 = caltime(dataf, i, '装行李开始', '目标离港时间', 'A')
+        c1r15 = caltime(dataf, i, '通知翻找行李', '目标离港时间', 'A')
+        c1r16 = caltime(dataf, i, '实挑实捡行李', '目标离港时间', 'A')
+        # C类指标
+        c2r1 = caltime(dataf, i, ['上轮挡开始', '摆反光锥开始'], ['上轮挡结束', '摆反光锥结束'], 'B', 1)
+        c2r2 = caltime(dataf, i,
+                       ['桥1对接开始', '桥2对接开始', '桥3对接开始', '客梯车1对接开始', '客梯车2对接开始',
+                        '客梯车3对接开始'],
+                       ['桥1对接结束', '桥2对接结束', '桥3对接结束', '客梯车1对接结束', '客梯车2对接结束',
+                        '客梯车3对接结束'], 'B', 1)
+        if len(dataf.loc[i, '开客门操作时间']) == 0:
+            c2r3 = ''
+        else:
+            c2r3 = int(dataf.loc[i, '开客门操作时间'])
+        if len(dataf.loc[i, '开客门操作时间']) == 0:
+            c2r4 = ''
+        else:
+            c2r4 = int(dataf.loc[i, '关客门操作时间'])
+        if len(dataf.loc[i, '开客门操作时间']) == 0:
+            c2r5 = ''
+        else:
+            c2r5 = int(dataf.loc[i, '关货门操作时间'])
+        c2r6 = caltime(dataf, i,
+                       ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始', '车1撤离开始', '车2撤离开始', '车3撤离开始'],
+                       ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束', '车1撤离结束', '车2撤离结束', '车3撤离结束'], 'B',
+                       1)
+        c2r7 = caltime(dataf, i, '牵引车对接开始', '牵引车对接结束', 'A', 1)
+        c2r8 = caltime(dataf, i, ['撤轮挡开始', '撤反光锥开始'], ['撤轮挡结束', '撤反光锥结束'], 'B', 1)
+        # D类指标
+        c2r9 = caltime(dataf, i, '申请拖曳时间', '目标离港时间', 'A')
+        c2r10 = caltime(dataf, i, '廊桥检查及准备工作完成', '上轮挡开始', 'A')
+        c2r12 = caltime(dataf, i, '清洁完成', '目标离港时间', 'A')
+        c2r13 = caltime(dataf, i, '清水车拔管', '目标离港时间', 'A')
+        c2r14 = caltime(dataf, i, '污水车拔管', '目标离港时间', 'A')
+        c2r15 = caltime(dataf, i, '配餐完成', '目标离港时间', 'A')
+        c2r16 = caltime(dataf, i, '加油完成', '目标离港时间', 'A')
+        c3r1 = caltime(dataf, i, '登机口关闭', '目标离港时间', 'A')
+        c3r2 = caltime(dataf, i, '舱单上传完成', '目标离港时间', 'A')
+        c3r4 = caltime(dataf, i, '关客门', '目标离港时间', 'A')
+        c3r5 = caltime(dataf, i, '关货门', '目标离港时间', 'A')
+        c3r6 = caltime(dataf, i, '引导车通报引导信息', 'TSAT', 'A')
+        # E类指标
+        c3r7 = caltime(dataf, i, ['给出对接手势'],
+                       ['桥1对接开始', '桥2对接开始', '桥3对接开始', '客梯车1对接开始', '客梯车2对接开始',
+                        '客梯车3对接开始'], 'D', 1)
+        c3r8 = caltime(dataf, i, ['开客门'], ['桥1对接结束', '桥2对接结束', '桥3对接结束'
+            , '客梯车1对接结束', '客梯车2对接结束', '客梯车3对接结束'], 'D', 1)  # 节点倒过来了，输入时需输入相反数
+        c3r9 = caltime(dataf, i, '开货门', '卸行李开始', 'A', 1)
+        c3r10 = caltime(dataf, i, '旅客下机完毕', '清洁开始', 'A', 1)
+        c3r11 = caltime(dataf, i, ['关客门'],
+                        ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束', '车1撤离结束', '车2撤离结束', '车3撤离结束'], 'D',
+                        1)
+        c3r12 = caltime(dataf, i, ['首次RDY'], ['关客门', '关货门'], 'D', 1)  # 节点倒过来了，输入时需输入相反数
+        c3r13 = caltime(dataf, i, '防撞灯闪烁', '推出', 'A', 1)
+        c3r14 = caltime(dataf, i, '出港引导车接到指令', '出港引导车到位', 'A', 1)
+        # F类指标
+        c4F1 = caltime(dataf, i, 'STD', 'ATOT', 'A', 1)
+        c4F2 = caltime(dataf, i, 'COBT', '撤轮挡结束', 'A', 1)
+        c4F3 = caltime(dataf, i, 'CTOT', 'ATOT', 'A', 1)
+        c4F4 = caltime(dataf, i, 'ALDT', '上轮挡开始', 'A', 1)
+        c4F5 = caltime(dataf, i, '撤轮挡结束', 'ATOT', 'A', 1)
+        c4F6 = caltime(dataf, i, 'STD', 'ATOT', 'A', 1)
+        try:
+            if caltime(dataf, i, 'STA', '上轮挡开始', 'A', 1) <= 0:
+                c4F7 = '否'
+            elif caltime(dataf, i, 'STA', '上轮挡开始', 'A', 1) > 0:
+                c4F7 = '是'
+            else:
+                c4F7 = ''
+        except:
+            c4F7 = ''
+        # 额外信息读取
+        if len(dataf.loc[i, '进港近远机位']) == 0:
+            c4r1 = ''
+        else:
+            c4r1 = dataf.loc[i, '进港近远机位']
+        if len(dataf.loc[i, '机型大类']) == 0:
+            c4r2 = ''
+        else:
+            c4r2 = dataf.loc[i, '机型大类']
+        try:
+            if dataf.loc[i, '是否加餐'] == 1:
+                c4r3 = '是'
+            elif dataf.loc[i, '是否加餐'] == 0:
+                c4r3 = '否'
+            else:
+                c4r3 = '否'
+        except:
+            c4r3 = '否'
+        try:
+            if dataf.loc[i, '是否载客加油'] == 1:
+                c4r4 = '是'
+            elif dataf.loc[i, '是否载客加油'] == 0:
+                c4r4 = '否'
+            else:
+                c4r4 = ''
+        except:
+            c4r4 = ''
+        try:
+            if dataf.loc[i, '牵引车对接结束'] > dataf.loc[i, '防撞灯闪烁']:
+                c4r5 = '否'
+            elif dataf.loc[i, '牵引车对接结束'] <= dataf.loc[i, '防撞灯闪烁']:
+                c4r5 = '是'
+            else:
+                c4r5 = ''
+        except:
+            c4r5 = ''
+        if len(dataf.loc[i, '廊桥数量']) == 0 and len(dataf.loc[i, '客梯车数量']) == 0:
+            c4r6 = ''
+        elif len(dataf.loc[i, '廊桥数量']) == 0 or dataf.loc[i, '廊桥数量'] == '':
+            c4r6 = int(dataf.loc[i, '客梯车数量'])
+        elif len(dataf.loc[i, '客梯车数量']) == 0:
+            c4r6 = int(dataf.loc[i, '廊桥数量'])
+        else:
+            c4r6 = int(dataf.loc[i, '廊桥数量'])
+        ##########################################################################################
+        # 分数计算
+        ## A类指标
+        v = pd.read_csv('正常值上下界读取.csv', header=0, encoding='gbk')
+        if c4r1 == '近':
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r1, sd('拖曳飞机到达出港机位时间-F', v), 1, 'A', a1j)
+            else:
+                s += cal_single_ne(c1r1, sd('拖曳飞机到达出港机位时间-其他', v), 1, 'A', a1j)
+            s += cal_single_ne(c1r2, sd('航空器引导车到位时间', v), 1, 'A', a2j)
+            s += cal_single_ne(c1r3, sd('过站机务到位', v), 1, 'A', a3j)
+            s += cal_single_ne(c1r6, sd('地服接机人员到位时间', v), 1, 'A', a6j)
+            s += cal_single_ne(c1r7, sd('装卸人员及装卸设备到位时间', v), 1, 'A', a7j)
+            s += cal_single_ne(c1r8, sd('清洁人员到位时间', v), 1, 'A', a8j)
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r9, sd('机组到位时间-F', v), 1, 'A', a9j)
+            else:
+                s += cal_single_ne(c1r9, sd('机组到位时间-其他', v), 1, 'A', a9j)
+            s += cal_single_ne(c1r12, sd('牵引车、机务、拖把到位时间', v), 1, 'A', a12j)
+        elif c4r1 == '远':
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r1, sd('拖曳飞机到达出港机位时间-F', v), 1, 'A', a1w)
+            else:
+                s += cal_single_ne(c1r1, sd('拖曳飞机到达出港机位时间-其他', v), 1, 'A', a1w)
+            s += cal_single_ne(c1r2, sd('航空器引导车到位时间', v), 1, 'A', a2w)
+            s += cal_single_ne(c1r3, sd('过站机务到位', v), 1, 'A', a3w)
+            s += cal_single_ne(c1r4, sd('客梯车到达机位时间', v), 1, 'A', a4w)
+            s += cal_single_ne(c1r5, sd('首辆摆渡车到达机位时间', v), 1, 'A', a5w)
+            s += cal_single_ne(c1r6, sd('地服接机人员到位时间', v), 1, 'A', a6w)
+            s += cal_single_ne(c1r7, sd('装卸人员及装卸设备到位时间', v), 1, 'A', a7w)
+            s += cal_single_ne(c1r8, sd('清洁人员到位时间', v), 1, 'A', a8w)
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r9, sd('机组到位时间-F', v), 1, 'A', a9w)
+            else:
+                s += cal_single_ne(c1r9, sd('机组到位时间-其他', v), 1, 'A', a9w)
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r10, sd('首辆摆渡车到达登机口时间-F', v), 1, 'A', a10w)
+            elif c4r2 == 'D' or c4r2 == 'E':
+                s += cal_single_ne(c1r10, sd('首辆摆渡车到达登机口时间-DE', v), 1, 'A', a10w)
+            else:
+                s += cal_single_ne(c1r10, sd('首辆摆渡车到达登机口时间-ABC', v), 1, 'A', a10w)
+            s += cal_single_ne(c1r11, sd('出港最后一辆摆渡车到达远机位时间', v), 1, 'A', a11w)
+            s += cal_single_ne(c1r12, sd('牵引车、机务、拖把到位时间', v), 1, 'A', a12w)
+        else:
+            s += 0
+            return
+
+        ## B类指标
+        if c4r1 == '近':
+            if c4r2 == 'F':
+                s += cal_single_ne(c1r13, sd('近机位登机口开放时间-F', v), 1, 'B', b1)
+            else:
+                s += cal_single_ne(c1r13, sd('近机位登机口开放时间-其他', v), 1, 'B', b1)
+        elif c4r1 == '远':
+            s += cal_single_ne(c1r13, sd('远机位登机口开放时间', v), 1, 'B', b1)
+        else:
+            s += 0
+            return
+        s += cal_single_ne(c1r14, sd('行李装载开始时间', v), 1, 'B', b2)
+        if c4r2 == 'F':
+            s += cal_single_ne(c1r15, sd('通知翻找行李时间-F', v), 1, 'B', b3)
+        elif c4r2 == 'D' or c4r2 == 'E':
+            s += cal_single_ne(c1r15, sd('通知翻找行李时间-DE', v), 1, 'B', b3)
+        else:
+            s += cal_single_ne(c1r15, sd('通知翻找行李时间-ABC', v), 1, 'B', b3)
+        if c4r2 == 'E' or c4r2 == 'F':
+            s += cal_single_ne(c1r16, sd('实挑实捡行李时间-EF', v), 1, 'B', b4)
+        else:
+            s += cal_single_ne(c1r16, sd('实挑实捡行李时间-CD', v), 1, 'B', b4)
+        ## C类指标
+        if c4r2 == 'D' or c4r2 == 'E' or c4r2 == 'F':
+            s += cal_single_ne(c2r1, sd('轮挡、反光锥形标志物放置操作时间-DEF', v), 2, 'C', c1)
+        else:
+            s += cal_single_ne(c2r1, sd('轮挡、反光锥形标志物放置操作时间-ABC', v), 2, 'C', c1)
+        if c4r1 == '近':
+            if c4r6 == '1':
+                s += cal_single_ne(c2r2, sd('单桥对接作业时间', v), 2, 'C', c2)
+            elif c4r6 == '2':
+                s += cal_single_ne(c2r2, sd('双桥对接作业时间', v), 2, 'C', c2)
+            elif c4r6 == '3':
+                s += cal_single_ne(c2r2, sd('三桥对接作业时间', v), 2, 'C', c2)
+            else:
+                s += cal_single_ne(c2r2, sd('单桥对接作业时间', v), 2, 'C', c2)
+        elif c4r1 == '远':
+            if c4r6 == '1':
+                s += cal_single_ne(c2r2, sd('单客梯车对接操作时间', v), 2, 'C', c2)
+            elif int(c4r6) > 1:
+                s += cal_single_ne(c2r2, sd('多客梯车对接操作时间', v), 2, 'C', c2)
+            else:
+                s += cal_single_ne(c2r2, sd('单客梯车对接操作时间', v), 2, 'C', c2)
+        else:
+            s += 0
+            return
+        s += cal_single_ne(c2r3, sd('客舱门开启操作时间', v), 2, 'C', c3)
+        s += cal_single_ne(c2r4, sd('客舱门关闭操作时间', v), 2, 'C', c4)
+        s += cal_single_ne(c2r5, sd('货舱门关闭操作时间', v), 2, 'C', c5)
+        if c4r1 == '近':
+            if c4r6 == '1':
+                s += cal_single_ne(c2r6, sd('单桥撤离作业时间', v), 2, 'C', c6)
+            elif c4r6 == '2':
+                s += cal_single_ne(c2r6, sd('双桥撤离作业时间', v), 2, 'C', c6)
+            elif c4r6 == '3':
+                s += cal_single_ne(c2r6, sd('三桥撤离作业时间', v), 2, 'C', c6)
+            else:
+                s += cal_single_ne(c2r6, sd('单桥撤离作业时间', v), 2, 'C', c6)
+        elif c4r1 == '远':
+            if c4r6 == '1':
+                s += cal_single_ne(c2r6, sd('单客梯车撤离操作时间', v), 2, 'C', c6)
+            elif int(c4r6) > 1:
+                s += cal_single_ne(c2r6, sd('多客梯车撤离操作时间', v), 2, 'C', c6)
+            else:
+                s += cal_single_ne(c2r6, sd('单客梯车撤离操作时间', v), 2, 'C', c6)
+        else:
+            s += 0
+            return
+        s += cal_single_ne(c2r7, sd('牵引车对接操作时间', v), 2, 'C', c7)
+        if c4r2 == 'D' or c4r2 == 'E' or c4r2 == 'F':
+            s += cal_single_ne(c2r8, sd('轮挡、反光锥形标志物撤离操作时间-DEF', v), 2, 'C', c8)
+        else:
+            s += cal_single_ne(c2r8, sd('轮挡、反光锥形标志物撤离操作时间-ABC', v), 2, 'C', c8)
+        ## D类指标
+        if c4r2 == 'E' or c4r2 == 'F':
+            s += cal_single_ne(c2r9, sd('申请拖曳时间-EF', v), 1, 'D', d1)
+        else:
+            s += cal_single_ne(c2r9, sd('申请拖曳时间-其他', v), 1, 'D', d1)
+        if c4r1 == '近':
+            if c4r6 == '1' or c4r6 == '2':
+                s += cal_single_ne(c2r10, sd('廊桥检查及准备工作完成时间-单双桥', v), 1, 'D', d2)
+            elif c4r6 == '3':
+                s += cal_single_ne(c2r10, sd('廊桥检查及准备工作完成时间-三桥', v), 1, 'D', d2)
+        else:
+            s += 0
+        s += cal_single_ne(c2r12, sd('客舱清洁完成时间', v), 1, 'D', d3)
+        s += cal_single_ne(c2r13, sd('清水操作完成时间', v), 1, 'D', d4)
+        s += cal_single_ne(c2r14, sd('污水操作完成时间', v), 1, 'D', d5)
+        if c4r3 == '是':
+            s += cal_single_ne(c2r15, sd('餐食及机供品配供完成时间（加餐）', v), 1, 'D', d6)
+        elif c4r3 == '否':
+            s += cal_single_ne(c2r15, sd('餐食及机供品配供完成时间（未加餐）', v), 1, 'D', d6)
+        else:
+            s += cal_single_ne(c2r15, sd('餐食及机供品配供完成时间（未加餐）', v), 1, 'D', d6)
+        if c4r4 == '是':
+            s += cal_single_ne(c2r16, sd('载客航油加注完成时间', v), 1, 'D', d7)
+        elif c4r4 == '否':
+            s += cal_single_ne(c2r16, sd('非载客航油加注完成时间', v), 1, 'D', d7)
+        else:
+            s += cal_single_ne(c2r16, sd('非载客航油加注完成时间', v), 1, 'D', d7)
+
+        s += cal_single_ne(c3r1, sd('登机口关闭时间', v), 1, 'D', d8)
+        s += cal_single_ne(c3r2, sd('舱单上传完成时间', v), 1, 'D', d9)
+        s += cal_single_ne(c3r4, sd('客舱门关闭完成时间', v), 1, 'D', d10)
+        s += cal_single_ne(c3r5, sd('货舱门关闭完成时间', v), 1, 'D', d11)
+        s += cal_single_ne(c3r6, sd('引导车引导信息通报', v), 1, 'D', d12)
+
+        ## E类指标
+        s += cal_single_ne(c3r7, sd('机务给指令与廊桥对接的衔接时间', v), 2, 'E', e1)
+        s += cal_single_ne(c3r8, sd('廊桥对接完成至客舱门开启', v), 2, 'E', e2)
+        if c4r2 == 'D' or c4r2 == 'E' or c4r2 == 'F':
+            s += cal_single_ne(c3r9, sd('开货门至卸行李货邮时间-DEF', v), 2, 'E', e3)
+        else:
+            s += cal_single_ne(c3r9, sd('开货门至卸行李货邮时间-ABC', v), 2, 'E', e3)
+        s += cal_single_ne(c3r10, sd('清洁作业开始时间', v), 2, 'E', e4)
+        if c4r1 == '近':
+            s += cal_single_ne(c3r11, sd('客舱门关闭与最后一个廊桥撤离的衔接', v), 2, 'E', e5)
+        elif c4r1 == '远':
+            s += cal_single_ne(c3r11, sd('客舱门关闭与最后一辆客梯车撤离的衔接', v), 2, 'E', e5)
+        else:
+            s += 0
+        s += cal_single_ne(c3r12, sd('关舱门至首次RDY时间', v), 2, 'E', e6)
+        if c4r5 == '是':
+            s += cal_single_ne(c3r13, sd('接到指令到航空器开始推离机位时间(已对接)', v), 2, 'E', e7)
+        elif c4r5 == '否':
+            s += cal_single_ne(c3r13, sd('接到指令到航空器开始推离机位时间(未对接)', v), 2, 'E', e7)
+        else:
+            s += cal_single_ne(c3r13, sd('接到指令到航空器开始推离机位时间(未对接)', v), 2, 'E', e7)
+        s += cal_single_ne(c3r14, sd('引导车接到指令至到达指定位置', v), 2, 'E', e8)
+        ## F类指标
+        try:
+            s += cal_single_ne(c4F1-30, 0, 2, 'F', f1)
+        except:
+            s += 0
+        try:
+            if int(c4F2) >= 0:
+                s += cal_single_ne(c4F2, 10, 2, 'F', f2)
+            elif int(c4F2) < 0:
+                s += cal_single_ne(c4F2, -5, 1, 'F', f2)
+            else:
+                s += 0
+        except:
+            s += 0
+        try:
+            if int(c4F3) >= 0:
+                s += cal_single_ne(c4F3, 10, 2, 'F', f3)
+            elif int(c4F3) < 0:
+                s += cal_single_ne(c4F3, -5, 1, 'F', f3)
+            else:
+                s += 0
+        except:
+            s += 0
+        s += cal_single_ne(c4F4, sd('进港滑行时间', v), 2, 'F', f4)
+        # 指标若有三个打分标准，则分成两段，每段的权重为原权重/2
+        s += cal_single_ne(c4F5, sd('离港滑行时间阈值1', v), 2, 'F', (f5 / 2))
+        s += cal_single_ne(c4F5, sd('离港滑行时间阈值2', v), 2, 'F', (f5 / 2))
+        try:
+            if c4F7 == '否':
+                c4F6 -= 30
+            elif c4F7 == '是':
+                c4F6 -= 40
+            else:
+                c4F6 -= 30
+        except:
+            c4F6 = ''
+        s += cal_single_ne(c4F6, 0, 2, 'F', (f6 / 2))
+        s += cal_single_ne(c4F6, 5, 2, 'F', (f6 / 2))
+        sums = round(s * 100, 3)
+        score.append(sums)
+    ###############################################################################################################
+    #  画图
+    # try:
+    plot_window_score = tk.Toplevel(root)
+    plot_window_score.title(f"各个航班情况统计")
+    create_plot_score(score, plot_window_score)
+    # except Exception as e:
+    #     messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
+    #     return
     return
 
 
@@ -1915,7 +2435,7 @@ def read_weight():
     a2w = weight_r(data_weight, '节点名称', '引导车到达指定引导位置', '远机位权重')
     a3j = weight_r(data_weight, '节点名称', '机务到达机位', '近机位权重')
     a3w = weight_r(data_weight, '节点名称', '机务到达机位', '远机位权重')
-    a4w = weight_r(data_weight, '节点名称', '客梯车到达机位', '近机位权重')
+    a4w = weight_r(data_weight, '节点名称', '客梯车到达机位', '远机位权重')
     a5w = weight_r(data_weight, '节点名称', '进港首辆摆渡车到达机位', '远机位权重')
     a6j = weight_r(data_weight, '节点名称', '地服接机人员到位', '近机位权重')
     a6w = weight_r(data_weight, '节点名称', '地服接机人员到位', '远机位权重')
@@ -1925,7 +2445,7 @@ def read_weight():
     a8w = weight_r(data_weight, '节点名称', '清洁人员到达机位', '远机位权重')
     a9j = weight_r(data_weight, '节点名称', '机组和乘务到达机位', '近机位权重')
     a9w = weight_r(data_weight, '节点名称', '机组和乘务到达机位', '远机位权重')
-    a10w = weight_r(data_weight, '节点名称', '出港首辆摆渡车到达登机口', '近机位权重')
+    a10w = weight_r(data_weight, '节点名称', '出港首辆摆渡车到达登机口', '远机位权重')
     a11w = weight_r(data_weight, '节点名称', '出港最后一辆摆渡车到达远机位', '远机位权重')
     a12j = weight_r(data_weight, '节点名称', '牵引车、机务、拖把到达机位', '近机位权重')
     a12w = weight_r(data_weight, '节点名称', '牵引车、机务、拖把到达机位', '远机位权重')
@@ -2049,12 +2569,150 @@ def read_weight():
     weight_insert(WD_entry, percent(w_d))
     weight_insert(WE_entry, percent(w_e))
     weight_insert(WF_entry, percent(w_f))
-    return
+
+def read_check():
+    answer = messagebox.askyesno("确认读取数据", "读取数据将会覆盖目前所有已填写的数据且不可退回！\n是否确定读取数据？")
+    if answer:
+        read_weight()
 
 def update_weight():
+    # 提示用户是否修改数据
+    answer = messagebox.askyesno("确认修改数据", "修改数据时请确保“航班评分权重.csv”处于未打开的状态！\n      是否确定修改数据？")
+    if not answer:
+        return
+    # 检查用户对于权重的修改是否正确
+    a1j = int(A1_entry1.get().strip('%'))
+    a1w = int(A1_entry2.get().strip('%'))
+    a2j = int(A2_entry1.get().strip('%'))
+    a2w = int(A2_entry2.get().strip('%'))
+    a3j = int(A3_entry1.get().strip('%'))
+    a3w = int(A3_entry2.get().strip('%'))
+    a4w = int(A4_entry2.get().strip('%'))
+    a5w = int(A5_entry2.get().strip('%'))
+    a6j = int(A6_entry1.get().strip('%'))
+    a6w = int(A6_entry2.get().strip('%'))
+    a7j = int(A7_entry1.get().strip('%'))
+    a7w = int(A7_entry2.get().strip('%'))
+    a8j = int(A8_entry1.get().strip('%'))
+    a8w = int(A8_entry2.get().strip('%'))
+    a9j = int(A9_entry1.get().strip('%'))
+    a9w = int(A9_entry2.get().strip('%'))
+    a10w = int(A10_entry2.get().strip('%'))
+    a11w = int(A11_entry2.get().strip('%'))
+    a12j = int(A12_entry1.get().strip('%'))
+    a12w = int(A12_entry2.get().strip('%'))
+    if a1j + a2j + a3j + a6j+ a7j + a8j + a9j + a12j != 100:
+        messagebox.showinfo("错误", "A类近机位指标权重之和不为100%！！！")
+        return
+    if a1w + a2w + a3w + a4w + a5w + a6w + a7w + a8w + a9w + a10w + a11w + a12w != 100:
+        messagebox.showinfo("错误", "A类远机位指标权重之和不为100%！！！")
+        return
+    b1 = int(B1_entry.get().strip('%'))
+    b2 = int(B2_entry.get().strip('%'))
+    b3 = int(B3_entry.get().strip('%'))
+    b4 = int(B4_entry.get().strip('%'))
+    if b1 + b2 + b3 + b4 != 100:
+        messagebox.showinfo("错误", "B类指标权重之和不为100%！！！")
+        return
+    c1 = int(C1_entry.get().strip('%'))
+    c2 = int(C2_entry.get().strip('%'))
+    c3 = int(C3_entry.get().strip('%'))
+    c4 = int(C4_entry.get().strip('%'))
+    c5 = int(C5_entry.get().strip('%'))
+    c6 = int(C6_entry.get().strip('%'))
+    c7 = int(C7_entry.get().strip('%'))
+    c8 = int(C8_entry.get().strip('%'))
+    if c1 + c2 + c3 + c4 + c5 +c6 +c7 + c8 != 100:
+        messagebox.showinfo("错误", "C类指标权重之和不为100%！！！")
+        return
+    d1 = int(D1_entry.get().strip('%'))
+    d2 = int(D2_entry.get().strip('%'))
+    d3 = int(D3_entry.get().strip('%'))
+    d4 = int(D4_entry.get().strip('%'))
+    d5 = int(D5_entry.get().strip('%'))
+    d6 = int(D6_entry.get().strip('%'))
+    d7 = int(D7_entry.get().strip('%'))
+    d8 = int(D8_entry.get().strip('%'))
+    d9 = int(D9_entry.get().strip('%'))
+    d10 = int(D10_entry.get().strip('%'))
+    d11 = int(D11_entry.get().strip('%'))
+    d12 = int(D12_entry.get().strip('%'))
+    if d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 + d10 + d11 + d12 != 100:
+        messagebox.showinfo("错误", "D类指标权重之和不为100%！！！")
+        return
+    e1 = int(E1_entry.get().strip('%'))
+    e2 = int(E2_entry.get().strip('%'))
+    e3 = int(E3_entry.get().strip('%'))
+    e4 = int(E4_entry.get().strip('%'))
+    e5 = int(E5_entry.get().strip('%'))
+    e6 = int(E6_entry.get().strip('%'))
+    e7 = int(E7_entry.get().strip('%'))
+    e8 = int(E8_entry.get().strip('%'))
+    if e1 + e2 + e3 + e4 + e5 + e6 + e7 + e8 != 100:
+        messagebox.showinfo("错误", "E类指标权重之和不为100%！！！")
+        return
+    f1 = int(F1_entry.get().strip('%'))
+    f2 = int(F2_entry.get().strip('%'))
+    f3 = int(F3_entry.get().strip('%'))
+    f4 = int(F4_entry.get().strip('%'))
+    f5 = int(F5_entry.get().strip('%'))
+    f6 = int(F6_entry.get().strip('%'))
+    if f1 + f2 + f3 + f4 + f5 + f6 != 100:
+        messagebox.showinfo("错误", "F类指标权重之和不为100%！！！")
+        return
+    wa = int(WA_entry.get().strip('%'))
+    wb = int(WB_entry.get().strip('%'))
+    wc = int(WC_entry.get().strip('%'))
+    wd = int(WD_entry.get().strip('%'))
+    we = int(WE_entry.get().strip('%'))
+    wf = int(WF_entry.get().strip('%'))
+    if wa + wb + wc + wd + we + wf != 100:
+        messagebox.showinfo("错误", "各指标类型权重总和不为100%！！！")
+        return
+    def data_write(df, arr, col, row = 0):
+        for i in range(row, len(arr)):
+            df.iloc[i, col] = f'{arr[i]}%'
+    dataf = pd.read_csv('航班评分权重.csv', header=0, encoding='gbk')
+    awarr = [a1w, a2w, a3w, a4w, a5w, a6w, a7w, a8w, a9w, a10w, a11w, a12w]
+    barr = [b1, b2, b3, b4]
+    carr = [c1, c2, c3, c4, c5, c6, c7, c8]
+    darr = [d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12]
+    earr = [e1, e2, e3, e4, e5, e6, e7, e8]
+    farr = [f1, f2, f3, f4, f5, f6]
+    warr = [wa, wb, wc, wd, we, wf]
+    dataf.iloc[0, 5] = f'{a1j}%'
+    dataf.iloc[1, 5] = f'{a2j}%'
+    dataf.iloc[2, 5] = f'{a3j}%'
+    dataf.iloc[5, 5] = f'{a6j}%'
+    dataf.iloc[6, 5] = f'{a7j}%'
+    dataf.iloc[7, 5] = f'{a8j}%'
+    dataf.iloc[8, 5] = f'{a9j}%'
+    dataf.iloc[11, 5] = f'{a12j}%'
+    data_write(dataf, awarr, 6, 0)
+    data_write(dataf, barr, 4, 12)
+    data_write(dataf, carr, 4, 16)
+    data_write(dataf, darr, 4, 24)
+    data_write(dataf, earr, 4, 36)
+    data_write(dataf, farr, 4, 44)
+    data_write(dataf, warr, 9, 0)
+    dataf.to_csv('航班评分权重.csv', encoding='gbk', index=False)
+    messagebox.showinfo("成功", "成功修改航班评分权重！！！")
     return
 
 def default_weight():
+    answer = messagebox.askyesno("确认恢复默认","这将让所有权重恢复至默认数值！\n是否确认操作？")
+    if not answer:
+        return
+    try:
+        if os.path.exists("航班评分权重.csv"):
+            os.remove("航班评分权重.csv")
+        # 复制Backing_up路径下的文件到根目录下
+        source_path = "Backing_up/航班评分权重.csv"
+        destination_path = "航班评分权重.csv"
+        shutil.copyfile(source_path, destination_path)
+        messagebox.showinfo("成功", "各权重已恢复至默认数值！")
+    except Exception as e:
+        messagebox.showerror("错误", f"恢复权重设置文件时出现错误: {str(e)}")
     return
 
 ##############################################################################################
@@ -2486,7 +3144,8 @@ selected_option_3 = tk.StringVar()
 options = [
     "申请拖曳时间-其他",
     "申请拖曳时间-EF",
-    "廊桥检查及准备工作完成时间",
+    "廊桥检查及准备工作完成时间-单双桥",
+    "廊桥检查及准备工作完成时间-三桥",
     "客舱清洁完成时间",
     "污水操作完成时间",
     "清水操作完成时间",
@@ -2824,67 +3483,67 @@ tab4_col01_label = tk.Label(tab4, text="时间（分钟）")
 tab4_col01_label.grid(row=1, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col1_label = tk.Label(tab4, text="A拖曳飞机到达出港机位")
 tab4_col1_label.grid(row=2, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col1_entry = tk.Entry(tab4, width=10)
+tab4_col1_entry = tk.Entry(tab4, width=7)
 tab4_col1_entry.grid(row=2, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col2_label = tk.Label(tab4, text="A引导车到达指定引导位置")
 tab4_col2_label.grid(row=3, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col2_entry = tk.Entry(tab4, width=10)
+tab4_col2_entry = tk.Entry(tab4, width=7)
 tab4_col2_entry.grid(row=3, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col3_label = tk.Label(tab4, text="A机务到达机位")
 tab4_col3_label.grid(row=4, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col3_entry = tk.Entry(tab4, width=10)
+tab4_col3_entry = tk.Entry(tab4, width=7)
 tab4_col3_entry.grid(row=4, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col4_label = tk.Label(tab4, text="A客梯车到达机位")
 tab4_col4_label.grid(row=5, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col4_entry = tk.Entry(tab4, width=10)
+tab4_col4_entry = tk.Entry(tab4, width=7)
 tab4_col4_entry.grid(row=5, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col5_label = tk.Label(tab4, text="A进港首辆摆渡车到达机位")
 tab4_col5_label.grid(row=6, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col5_entry = tk.Entry(tab4, width=10)
+tab4_col5_entry = tk.Entry(tab4, width=7)
 tab4_col5_entry.grid(row=6, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col6_label = tk.Label(tab4, text="A地服接机人员到位")
 tab4_col6_label.grid(row=7, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col6_entry = tk.Entry(tab4, width=10)
+tab4_col6_entry = tk.Entry(tab4, width=7)
 tab4_col6_entry.grid(row=7, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col7_label = tk.Label(tab4, text="A装卸人员及装卸设备到位", wraplength=200, justify="left")
 tab4_col7_label.grid(row=8, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col7_entry = tk.Entry(tab4, width=10)
+tab4_col7_entry = tk.Entry(tab4, width=7)
 tab4_col7_entry.grid(row=8, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col8_label = tk.Label(tab4, text="A清洁人员到达机位")
 tab4_col8_label.grid(row=9, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col8_entry = tk.Entry(tab4, width=10)
+tab4_col8_entry = tk.Entry(tab4, width=7)
 tab4_col8_entry.grid(row=9, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_col9_label = tk.Label(tab4, text="A机组和乘务到达机位")
 tab4_col9_label.grid(row=10, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_col9_entry = tk.Entry(tab4, width=10)
+tab4_col9_entry = tk.Entry(tab4, width=7)
 tab4_col9_entry.grid(row=10, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_cola_label = tk.Label(tab4, text="A出港首辆摆渡车到达登机口")
 tab4_cola_label.grid(row=11, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_cola_entry = tk.Entry(tab4, width=10)
+tab4_cola_entry = tk.Entry(tab4, width=7)
 tab4_cola_entry.grid(row=11, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colb_label = tk.Label(tab4, text="A出港最后一辆摆渡车到达远机位", wraplength=200, justify="left")
 tab4_colb_label.grid(row=12, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_colb_entry = tk.Entry(tab4, width=10)
+tab4_colb_entry = tk.Entry(tab4, width=7)
 tab4_colb_entry.grid(row=12, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colc_label = tk.Label(tab4, text="A牵引车、机务、拖把到达机位", wraplength=200, justify="left")
 tab4_colc_label.grid(row=13, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_colc_entry = tk.Entry(tab4, width=10)
+tab4_colc_entry = tk.Entry(tab4, width=7)
 tab4_colc_entry.grid(row=13, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_cold_label = tk.Label(tab4, text="B登机口开放", wraplength=200, justify="left")
 tab4_cold_label.grid(row=14, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_cold_entry = tk.Entry(tab4, width=10)
+tab4_cold_entry = tk.Entry(tab4, width=7)
 tab4_cold_entry.grid(row=14, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_cole_label = tk.Label(tab4, text="B行李装载开始", wraplength=140, justify="left")
 tab4_cole_label.grid(row=15, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_cole_entry = tk.Entry(tab4, width=10)
+tab4_cole_entry = tk.Entry(tab4, width=7)
 tab4_cole_entry.grid(row=15, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colf_label = tk.Label(tab4, text="B通知翻找行李", wraplength=140, justify="left")
 tab4_colf_label.grid(row=16, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_colf_entry = tk.Entry(tab4, width=10)
+tab4_colf_entry = tk.Entry(tab4, width=7)
 tab4_colf_entry.grid(row=16, column=1, padx=10, pady=1, sticky=tk.W)
 tab4_colg_label = tk.Label(tab4, text="B实挑实减行李", wraplength=140, justify="left")
 tab4_colg_label.grid(row=17, column=0, padx=10, pady=1, sticky=tk.W)
-tab4_colg_entry = tk.Entry(tab4, width=10)
+tab4_colg_entry = tk.Entry(tab4, width=7)
 tab4_colg_entry.grid(row=17, column=1, padx=10, pady=1, sticky=tk.W)
 
 ##第2列
@@ -2895,7 +3554,7 @@ def create_entry_labels(tab, entries, col):
         label_text, default_value = entry_data
         label = tk.Label(tab, text=label_text, wraplength=210, justify="left")
         label.grid(row=i, column=(col*2-2), padx=10, pady=1, sticky=tk.W)
-        entry = tk.Entry(tab, width=10)
+        entry = tk.Entry(tab, width=7)
         entry.grid(row=i, column=(col*2-1), padx=10, pady=1, sticky=tk.W)
         entry.insert(0, default_value)
         entry_dict[label_text] = entry  # 将输入框对象与标签文本关联起来
@@ -3010,31 +3669,31 @@ tab4_col411_label.grid(row=8, column=7, padx=10, pady=1, sticky=tk.W)
 
 tab4_F1_label = tk.Label(tab4, text="过站航班起飞正常(ATOT-STD-30min)", wraplength=210, justify="left")
 tab4_F1_label.grid(row=9, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F1_entry = tk.Entry(tab4, width=10)
+tab4_F1_entry = tk.Entry(tab4, width=7)
 tab4_F1_entry.grid(row=9, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F2_label = tk.Label(tab4, text="COBT符合性(AOBT-COBT)", wraplength=210, justify="left")
 tab4_F2_label.grid(row=10, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F2_entry = tk.Entry(tab4, width=10)
+tab4_F2_entry = tk.Entry(tab4, width=7)
 tab4_F2_entry.grid(row=10, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F3_label = tk.Label(tab4, text="CTOT符合性(ATOT-CTOT)", wraplength=210, justify="left")
 tab4_F3_label.grid(row=11, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F3_entry = tk.Entry(tab4, width=10)
+tab4_F3_entry = tk.Entry(tab4, width=7)
 tab4_F3_entry.grid(row=11, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F4_label = tk.Label(tab4, text="进港滑行时间(AIBT-ALDT)", wraplength=210, justify="left")
 tab4_F4_label.grid(row=12, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F4_entry = tk.Entry(tab4, width=10)
+tab4_F4_entry = tk.Entry(tab4, width=7)
 tab4_F4_entry.grid(row=12, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F5_label = tk.Label(tab4, text="离港滑行时间(ATOT-AOBT)", wraplength=210, justify="left")
 tab4_F5_label.grid(row=13, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F5_entry = tk.Entry(tab4, width=10)
+tab4_F5_entry = tk.Entry(tab4, width=7)
 tab4_F5_entry.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F6_label = tk.Label(tab4, text="放行延误时间", wraplength=210, justify="left")
 tab4_F6_label.grid(row=14, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F6_entry = tk.Entry(tab4, width=10)
+tab4_F6_entry = tk.Entry(tab4, width=7)
 tab4_F6_entry.grid(row=14, column=7, padx=10, pady=1, sticky=tk.W)
 tab4_F7_label = tk.Label(tab4, text="是否进港延误", wraplength=210, justify="left")
 tab4_F7_label.grid(row=15, column=6, padx=10, pady=1, sticky=tk.W)
-tab4_F7_entry = tk.Entry(tab4, width=10)
+tab4_F7_entry = tk.Entry(tab4, width=7)
 tab4_F7_entry.grid(row=15, column=7, padx=10, pady=1, sticky=tk.W)
 
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
@@ -3238,7 +3897,7 @@ weight_col4 = [
     ("E作业衔接时间符合性", ""),
     ("F局方关注指标", "")
 ]
-tab_gzweight_col41_label = tk.Label(tab_gzweight, text="作业")
+tab_gzweight_col41_label = tk.Label(tab_gzweight, text="指标类型")
 tab_gzweight_col41_label.grid(row=1, column=7, padx=10, pady=1, sticky=tk.W)
 tab_gzweight_col42_label = tk.Label(tab_gzweight, text="权重")
 tab_gzweight_col42_label.grid(row=1, column=8, padx=10, pady=1, sticky=tk.W)
@@ -3255,32 +3914,32 @@ tab_gzweight_col43_label = tk.Label(tab_gzweight, text="作业")
 tab_gzweight_col43_label.grid(row=9, column=7, padx=10, pady=1, sticky=tk.W)
 tab_gzweight_col44_label = tk.Label(tab_gzweight, text="权重")
 tab_gzweight_col44_label.grid(row=9, column=8, padx=10, pady=1, sticky=tk.W)
-F1_label = tk.Label(tab_gzweight, text="过站航班起飞正常", wraplength=210, justify="left")
+F1_label = tk.Label(tab_gzweight, text="F-过站航班起飞正常", wraplength=210, justify="left")
 F1_label.grid(row=10, column=7, padx=10, pady=1, sticky=tk.W)
 F1_entry = tk.Entry(tab_gzweight, width=7)
 F1_entry.grid(row=10, column=8, padx=10, pady=1, sticky=tk.W)
-F2_label = tk.Label(tab_gzweight, text="COBT符合性", wraplength=210, justify="left")
+F2_label = tk.Label(tab_gzweight, text="F-COBT符合性", wraplength=210, justify="left")
 F2_label.grid(row=11, column=7, padx=10, pady=1, sticky=tk.W)
 F2_entry = tk.Entry(tab_gzweight, width=7)
 F2_entry.grid(row=11, column=8, padx=10, pady=1, sticky=tk.W)
-F3_label = tk.Label(tab_gzweight, text="CTOT符合性", wraplength=210, justify="left")
+F3_label = tk.Label(tab_gzweight, text="F-CTOT符合性", wraplength=210, justify="left")
 F3_label.grid(row=12, column=7, padx=10, pady=1, sticky=tk.W)
 F3_entry = tk.Entry(tab_gzweight, width=7)
 F3_entry.grid(row=12, column=8, padx=10, pady=1, sticky=tk.W)
-F4_label = tk.Label(tab_gzweight, text="进港滑行时间符合性", wraplength=210, justify="left")
+F4_label = tk.Label(tab_gzweight, text="F-进港滑行时间符合性", wraplength=210, justify="left")
 F4_label.grid(row=13, column=7, padx=10, pady=1, sticky=tk.W)
 F4_entry = tk.Entry(tab_gzweight, width=7)
 F4_entry.grid(row=13, column=8, padx=10, pady=1, sticky=tk.W)
-F5_label = tk.Label(tab_gzweight, text="离港滑行时间符合性", wraplength=210, justify="left")
+F5_label = tk.Label(tab_gzweight, text="F-离港滑行时间符合性", wraplength=210, justify="left")
 F5_label.grid(row=14, column=7, padx=10, pady=1, sticky=tk.W)
 F5_entry = tk.Entry(tab_gzweight, width=7)
 F5_entry.grid(row=14, column=8, padx=10, pady=1, sticky=tk.W)
-F6_label = tk.Label(tab_gzweight, text="放行延误时间", wraplength=210, justify="left")
+F6_label = tk.Label(tab_gzweight, text="F-放行延误时间", wraplength=210, justify="left")
 F6_label.grid(row=15, column=7, padx=10, pady=1, sticky=tk.W)
 F6_entry = tk.Entry(tab_gzweight, width=7)
 F6_entry.grid(row=15, column=8, padx=10, pady=1, sticky=tk.W)
 
-tab_gzweight_button1 = tk.Button(tab_gzweight, text="读取权重", command=read_weight, width=10)
+tab_gzweight_button1 = tk.Button(tab_gzweight, text="读取权重", command=read_check, width=10)
 tab_gzweight_button1.grid(row=19, column=8, padx=10, pady=10, sticky=tk.W)
 #可以写个新函数，将read函数嵌套进去，执行时弹出确认框，让用户是否确认修改权重
 tab_gzweight_button2 = tk.Button(tab_gzweight, text="确认修改", command=update_weight, width=10, bg="#5cb85c", fg="white")

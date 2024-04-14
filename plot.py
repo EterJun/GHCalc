@@ -1,7 +1,9 @@
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import numpy as np
+from scipy.stats import norm
 
 #this is a test
 def create_plot(dataf,plot_window):
@@ -65,6 +67,41 @@ def create_plot(dataf,plot_window):
     fig.tight_layout()
 
     # 将Matplotlib图形嵌入Tkinter窗口
+    canvas = FigureCanvasTkAgg(fig, master=plot_window)
+    canvas_widget = canvas.get_tk_widget()
+    canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+
+def create_plot_score(data, plot_window):
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+
+    # 创建Matplotlib图形
+    # 创建一个指定大小的Figure对象
+    fig = Figure(figsize=(8, 6))
+
+    # 使用Figure对象创建Axes对象
+    ax = fig.add_subplot(111)
+
+    # 计算均值和标准差
+    mean = np.mean(data)
+    std_dev = np.std(data)
+    maxd = max(data)
+    mind = min(data)
+
+    # 生成正态分布曲线上的数据点
+    x = np.linspace(mean - 3 * std_dev, mean + 3 * std_dev, 100)
+    y = norm.pdf(x, mean, std_dev)
+
+    # 在Axes对象上绘制直方图和正态分布曲线
+    ax.hist(data, bins=30, density=True, alpha=0.6, color='g', edgecolor='black')
+    ax.plot(x, y, 'r--', linewidth=2)
+    ax.set_xlabel('航班评分')
+    ax.set_ylabel('比例')
+    ax.set_title(f'最大值:{maxd}         最小值{mind}         平均值:{round(mean,3)}')
+    ax.legend(['Normal Distribution', 'Histogram'])
+    ax.grid(True)
+
+    # 将Figure显示在Tkinter窗口中
     canvas = FigureCanvasTkAgg(fig, master=plot_window)
     canvas_widget = canvas.get_tk_widget()
     canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
