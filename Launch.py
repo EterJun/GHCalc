@@ -10,6 +10,38 @@ from plot import create_plot, create_plot_score
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+class CircularProgressBar:
+    def __init__(self, master, width, height):
+        self.master = master
+        self.width = width
+        self.height = height
+        self.canvas = tk.Canvas(self.master, width=self.width, height=self.height)
+        self.canvas.pack()
+        self.arc = None
+        self.text = None
+        self.total_iterations = 0
+
+    def update_progress(self, progress, total_iterations):
+        self.total_iterations = total_iterations
+        normalized_progress = (progress % self.total_iterations) / self.total_iterations * 100
+        self.draw_progress(normalized_progress)
+
+    def draw_progress(self, progress):
+        if self.arc:
+            self.canvas.delete(self.arc)
+        if self.text:
+            self.canvas.delete(self.text)
+
+        start_angle = 90
+        end_angle = start_angle + (progress * 360 / 100)
+        self.arc = self.canvas.create_arc(10, 10, self.width - 10, self.height - 10, start=start_angle, extent=end_angle-start_angle, style=tk.ARC, width=10, outline="green", fill="green")
+
+        # 计算百分比文本的位置
+        x_center = (self.width - 20) / 2
+        y_center = (self.height - 20) / 2
+        percentage_text = f"{round(progress)}%"
+        self.text = self.canvas.create_text(x_center, y_center, text=percentage_text, font=("Arial", 24, "bold"))
+
 result_df = pd.DataFrame(
             columns=['保障节点名称', '总样本数', '满足局方标准的比例', '时间晚于基准字段的样本数量',
                      '时间晚于基准字段的样本占比', '时间早于基准字段的样本数量',
@@ -31,6 +63,9 @@ result_df = pd.DataFrame(
 def total(Y, min, max, name, T, ccsv):
     global result_df
     total = len(Y) + T
+    if total == 0:
+        messagebox.showinfo("错误", "无符合条件的样本！")
+        return
     count = sum(min <= value <= max for value in Y) + T
     try:
         percentage = count / total
@@ -69,7 +104,7 @@ def jf(Y, mode, ccsv):
     if mode == 1:
         total = len(Y)
         if total == 0:
-            messagebox.showinfo("错误", "无符合条件的样本！")
+            messagebox.showinfo("错误", "无符合条件的标准先后样本！")
             return
         countl = sum(0 > value for value in Y)
         counte = sum(value > 0 for value in Y)
@@ -199,27 +234,39 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0):
             elif mode2 == "AD" and dataf.loc[i, '机型大类'] not in ['A', 'B', 'C', 'D']:
                 continue
             if type == 1:
-                for sname in start:
-                    if dataf.loc[i, sname] == 'T':
-                        T += 1
-                        continue
+                if type != 1:
+                    for sname in start:
+                        if dataf.loc[i, sname] == 'T':
+                            T += 1
+                            continue
+                if type == 1:
+                    count = 0
+                    for sname in start:
+                        if dataf.loc[i, sname] == 'T' or dataf.loc[i, sname] == '':
+                            count += 1
+                        if count == len(start):
+                            T += 1
+                            continue
             ary = []
             if mode3 == 'KS':
                 if startm == 0:
                     for sname in start:
                         if dataf.loc[i, sname] != '':
                             ary.append(dataf.loc[i, sname])
-                    if ary:
+                    if ary and type != 1:
                         stime = min(ary)
                         etime = dataf.loc[i, end]
                     else:
                         continue
                 if startm == 1:
                     for sname in start:
-                        if dataf.loc[i, sname] != '':
+                        if dataf.loc[i, sname] != '' and dataf.loc[i, sname] != 'T':
                             ary.append(dataf.loc[i, sname])
                     if ary:
                         stime = max(ary)
+                        print(ary)
+                        print(stime)
+                        print('---')
                         etime = dataf.loc[i, end]
                     else:
                         continue
@@ -299,25 +346,6 @@ def cal_shu(name,dataf,sl,slname,start,end):
                 continue
             if sl == 3 and str(dataf.loc[i, slname]) != '3' and str(dataf.loc[i, slname]) != '3.0':
                 continue
-        # elif slname == "客梯车数量":
-        #     if sl == 1 and dataf.loc[i, slname] != 1:
-        #         continue
-        #     if sl == 2 and dataf.loc[i, slname] != 2:
-        #         continue
-        #     if sl == 3 and dataf.loc[i, slname] != 3:
-        #         continue
-
-    # for i in range(0, len(dataf)):
-    #     if sl == 1 and not pd.notna(dataf.loc[i, slname]):
-    #         if dataf.loc[i, slname] != '1':
-    #             print(i)
-    #             continue
-    #     if sl == 2 and not pd.notna(dataf.loc[i, slname]):
-    #         if dataf.loc[i, slname] != '2':
-    #             continue
-    #     if sl == 3 and not pd.notna(dataf.loc[i, slname]):
-    #         if dataf.loc[i, slname] != '3':
-    #             continue
         sary = []
         eary = []
         for sname in start:
@@ -2058,8 +2086,12 @@ def meanscore():
     #############################################################################################################
     # 各指标数值计算
     score = []
+    pro_bar = tk.Toplevel(root)
+    pro_bar.title(f"各个航班情况统计")
+    progress_bar = CircularProgressBar(pro_bar, width=200, height=200) # 创建环形进度条
     for i in range(0, len(dataf)):
         s = 0
+        j = 0 # 加载条计数器
         c1r1 = caltime(dataf, i, '拖曳到位', '目标离港时间', 'A')
         c1r2 = caltime(dataf, i, '引导车到位', 'ELDT', 'A')
         c1r3 = caltime(dataf, i, '飞机入位机务到位', '上轮挡开始', 'A')
@@ -2406,15 +2438,18 @@ def meanscore():
         s += cal_single_ne(c4F6, 5, 2, 'F', (f6 / 2))
         sums = round(s * 100, 3)
         score.append(sums)
+        # 加入一个加载进度条
+        progress_bar.update_progress(i, len(dataf))
+        root.update()
     ###############################################################################################################
     #  画图
-    # try:
-    plot_window_score = tk.Toplevel(root)
-    plot_window_score.title(f"各个航班情况统计")
-    create_plot_score(score, plot_window_score)
-    # except Exception as e:
-    #     messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
-    #     return
+    try:
+        plot_window_score = tk.Toplevel(root)
+        plot_window_score.title(f"各个航班情况统计")
+        create_plot_score(score, plot_window_score)
+    except Exception as e:
+        messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
+    pro_bar.destroy()
     return
 
 
