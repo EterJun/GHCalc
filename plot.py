@@ -1,13 +1,13 @@
+from tkinter import messagebox
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm, skew, kurtosis, gamma
 
 #this is a test
 def create_plot(dataf,plot_window):
-    # 读取CSV文件数据,写个if，latep==''时只画俩图
     plt.rcParams['font.sans-serif'] = ['SimHei']
     name = dataf.iloc[0, 0]
     total = dataf.iloc[0, 1]
@@ -81,6 +81,7 @@ def create_plot_score(data, plot_window):
 
     # 使用Figure对象创建Axes对象
     ax = fig.add_subplot(111)
+    ax2 = ax.twinx()  # 创建第二个纵坐标轴
 
     # 计算均值和标准差
     mean = np.mean(data)
@@ -88,18 +89,39 @@ def create_plot_score(data, plot_window):
     maxd = max(data)
     mind = min(data)
 
-    # 生成正态分布曲线上的数据点
-    x = np.linspace(mean - 3 * std_dev, mean + 3 * std_dev, 100)
-    y = norm.pdf(x, mean, std_dev)
-
-    # 在Axes对象上绘制直方图和正态分布曲线
-    ax.hist(data, bins=30, density=True, alpha=0.6, color='g', edgecolor='black')
-    ax.plot(x, y, 'r--', linewidth=2)
+    bins = np.linspace(0, 100, 51)
+    ax.hist(data, bins=bins, density=False, alpha=0.6, color='g', edgecolor='black')
+        # 设置直方图的纵坐标轴标签和标题
     ax.set_xlabel('航班评分')
-    ax.set_ylabel('比例')
-    ax.set_title(f'最大值:{maxd}         最小值{mind}         平均值:{round(mean,3)}')
-    ax.legend(['Normal Distribution', 'Histogram'])
+    ax.set_ylabel('频数', color='g')  # 直方图纵坐标标注为“频数”
+    ax.set_title(f'样本数目:{len(data)}\n最大值:{maxd}         最小值{mind}         平均值:{round(mean, 3)}')
+    ax.legend(['直方图'], loc='upper left')
     ax.grid(True)
+
+    if len(data) > 10:
+        skewness = skew(data)
+        kurt = kurtosis(data)
+        if -0.5 < skewness < 0.5 and 2.5 < kurt < 3.5:  # 判断是否接近正态分布
+            # 如果数据接近正态分布，绘制正态分布曲线
+            x = np.linspace(mean - 3 * std_dev, mean + 3 * std_dev, 100)
+            y = norm.pdf(x, mean, std_dev)
+            name = '正态'
+        else:
+            # 否则生成伽马分布曲线
+            shape, loc, scale = gamma.fit(data)
+            x = np.linspace(0, np.max(data) * 2, 1000)
+            y = gamma.pdf(x, shape, loc, scale)
+            name = '伽马'
+
+        # 在Axes对象上绘制直方图和正态分布曲线
+        ax2.plot(x, y, 'r--', linewidth=2)
+
+        # 设置正态分布曲线的纵坐标轴标签
+        ax2.set_ylabel('概率密度', color='r')  # 正态分布曲线纵坐标标注为“概率密度”
+        ax2.legend([f'{name}分布曲线'], loc='upper right')
+        ax.set_xlim(0, 100)
+    else:
+        messagebox.showinfo("提示", "样本量较少，未画出学习曲线！")
 
     # 将Figure显示在Tkinter窗口中
     canvas = FigureCanvasTkAgg(fig, master=plot_window)

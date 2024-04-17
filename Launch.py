@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import warnings
 from plot import create_plot, create_plot_score
-# 写一个requirement
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -18,7 +17,8 @@ class CircularProgressBar:
         self.canvas = tk.Canvas(self.master, width=self.width, height=self.height)
         self.canvas.pack()
         self.arc = None
-        self.text = None
+        self.text_percentage = None
+        self.text_message = None
         self.total_iterations = 0
 
     def update_progress(self, progress, total_iterations):
@@ -29,18 +29,26 @@ class CircularProgressBar:
     def draw_progress(self, progress):
         if self.arc:
             self.canvas.delete(self.arc)
-        if self.text:
-            self.canvas.delete(self.text)
+        if self.text_percentage:
+            self.canvas.delete(self.text_percentage)
+        if self.text_message:
+            self.canvas.delete(self.text_message)
 
         start_angle = 90
         end_angle = start_angle + (progress * 360 / 100)
-        self.arc = self.canvas.create_arc(10, 10, self.width - 10, self.height - 10, start=start_angle, extent=end_angle-start_angle, style=tk.ARC, width=10, outline="green", fill="green")
+        self.arc = self.canvas.create_arc(10, 10, self.width - 10, self.height - 10, start=start_angle, extent=end_angle-start_angle, style=tk.ARC, width=18, outline="green", fill="green")
 
         # 计算百分比文本的位置
-        x_center = (self.width - 20) / 2
-        y_center = (self.height - 20) / 2
+        x_center = (self.width - 20) / 2 + 18
+        y_center = (self.height - 20) / 2 + 24
         percentage_text = f"{round(progress)}%"
-        self.text = self.canvas.create_text(x_center, y_center, text=percentage_text, font=("Arial", 24, "bold"))
+        self.text_percentage = self.canvas.create_text(x_center, y_center, text=percentage_text, font=("Arial", 24, "bold"))
+
+        # 添加额外的文本信息
+        x_center_message = (self.width - 20) / 2 + 16
+        y_center_message = (self.height - 20) / 2 - 5
+        message_text = "正在计算中"
+        self.text_message = self.canvas.create_text(x_center_message, y_center_message, text=message_text, font=("Arial", 16, "bold"))
 
 result_df = pd.DataFrame(
             columns=['保障节点名称', '总样本数', '满足局方标准的比例', '时间晚于基准字段的样本数量',
@@ -59,6 +67,32 @@ result_df = pd.DataFrame(
                      '25%位次值对应航班占比', '20%位次值对应航班占比', '15%位次值对应航班占比', '10%位次值对应航班占比',
                      '5%位次值对应航班占比'])
 
+def filter_data(dataf):
+    if airlines_entry.get() != ' ':
+        dataf['进港航班号'] = dataf['进港航班号'].fillna('NA')
+        dataf['离港航班号'] = dataf['离港航班号'].fillna('NA')
+        dataf = dataf[(dataf['进港航班号'].str[:2] == airlines_entry.get()) | (dataf['离港航班号'].str[:2] == airlines_entry.get())]
+    if agent_entry.get() != ' ':
+        dataf = dataf[dataf['保障代理'] == agent_entry.get()]
+    if stand_entry.get() != ' ':
+        dataf = dataf[dataf['停机位'] == stand_entry.get()]
+    if flight_entry.get() != ' ':
+        dataf = dataf[dataf['航班性质'] == flight_entry.get()]
+
+    if time_entry_1.get() != '':
+        dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+        date_start = pd.to_datetime(time_entry_1.get())
+        dataf = dataf[dataf['航班时间'] >= date_start]
+    if time_entry_2.get() != '':
+        try:
+            dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
+            date_end = pd.to_datetime(time_entry_2.get())
+        except:
+            date_end = pd.to_datetime(time_entry_2.get())
+        dataf = dataf[dataf['航班时间'] <= date_end]
+    f_data = dataf.reset_index(drop=True)
+    return f_data
+
 # 定义计算满足比例函数
 def total(Y, min, max, name, T, ccsv):
     global result_df
@@ -74,7 +108,6 @@ def total(Y, min, max, name, T, ccsv):
         result_df.loc[ccsv, result_df.columns[:3]] = data
     except:
         return
-    #result_df = result_df.append(pd.Series(data, index=result_df.columns[:3]), ignore_index=True)
 
 # 定义计算百分位值和比例函数
 def perc(Y, mode, ccsv):
@@ -96,7 +129,6 @@ def perc(Y, mode, ccsv):
         return
     data = [mean] + xs[::-1] + ys[::-1]
     result_df.loc[ccsv, result_df.columns[7:46]] = data
-    #result_df = result_df.append(pd.Series(data, index=result_df.columns[7:46]), ignore_index=True)
 
 # 定义基准字段早晚
 def jf(Y, mode, ccsv):
@@ -110,11 +142,9 @@ def jf(Y, mode, ccsv):
         counte = sum(value > 0 for value in Y)
         data = [countl, countl/total, counte, counte/total]
         result_df.loc[ccsv, result_df.columns[3:7]] = data
-        #result_df = result_df.append(pd.Series(data, index=result_df.columns[3:7]), ignore_index=True)
     else:
         data = ['', '', '', '']
         result_df.loc[ccsv, result_df.columns[3:7]] = data
-        #result_df = result_df.append(pd.Series(data, index=result_df.columns[3:7]), ignore_index=True)
 
 #定义转换时间函数
 def ct(time_str):
@@ -168,7 +198,6 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0):
     Y = []
     D = []
     T = 0
-    #global countcsv
 
     if mode1 == 1:
         for i in range(0, len(dataf)):
@@ -212,7 +241,6 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0):
             total(Y, 0, standard, name, T, 0)
         jf(Y, type, 0)
         perc(D, type, 0)
-        #0 += 1
     elif mode1 == 2:
         stime = 0
         etime = 0
@@ -311,7 +339,6 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0):
             total(Y, 0, standard, name, T, 0)
         jf(Y, type, 0)
         perc(D, type, 0)
-        #0 += 1
 
 # 特殊计算模块——廊桥、客梯车
 def cal_shu(name,dataf,sl,slname,start,end):
@@ -334,9 +361,6 @@ def cal_shu(name,dataf,sl,slname,start,end):
     Y = []
     D = []
     T = 0
-    stime = 0
-    etime = 0
-    #global countcsv
 
     for i in range(0, len(dataf)):
         if slname == "廊桥数量" or slname == "客梯车数量":
@@ -457,7 +481,6 @@ def cal_jiayou(name,dataf,zaike,start,end):
     Y = []
     D = []
     T = 0
-    #global countcsv
 
     for i in range(0, len(dataf)):
         if not pd.isna(dataf.loc[i, '是否载客加油']):
@@ -502,7 +525,6 @@ def cal_peican(name,dataf,peican,start,end):
     Y = []
     D = []
     T = 0
-    #global countcsv
 
     for i in range(0, len(dataf)):
         if not pd.isna(dataf.loc[i, '是否载客加油']):
@@ -549,7 +571,6 @@ def cal_djk(name,dataf,jw,mode,start,end):
     Y = []
     D = []
     T = 0
-    #global countcsv
 
     for i in range(0, len(dataf)):
         if not pd.isna(dataf.loc[i, '出港近远机位']) and not pd.isna(dataf.loc[i, '机型大类']):
@@ -599,7 +620,6 @@ def cal_tc(name,dataf,mode,start,end):
     Y = []
     D = []
     T = 0
-    #global countcsv
 
     for i in range(0, len(dataf)):
         try:
@@ -695,7 +715,6 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
             total(Y, 0, standard, name, T, 0)
         jf(Y, type, 0)
         perc(D, type, 0)
-        #0 += 1
     elif mode1 == 2:
         stime = 0
         etime = 0
@@ -794,8 +813,6 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
 ####################################################################################################
 # 定义处理UI的函数
 def process_file():
-    #try:
-    #csv写入计数器
     # 获取用户输入的导入路径
     input_file_path = input_path_entry.get()
     # 检查是否选择了导入路径
@@ -810,29 +827,7 @@ def process_file():
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
         return
 
-    if airlines_entry.get() != ' ':
-        dataf['进港航班号'] = dataf['进港航班号'].fillna('NA')
-        dataf['离港航班号'] = dataf['离港航班号'].fillna('NA')
-        dataf = dataf[(dataf['进港航班号'].str[:2] == airlines_entry.get()) | (dataf['离港航班号'].str[:2] == airlines_entry.get())]
-    if agent_entry.get() != ' ':
-        dataf = dataf[dataf['保障代理'] == agent_entry.get()]
-    if stand_entry.get() != ' ':
-        dataf = dataf[dataf['停机位'] == stand_entry.get()]
-    if flight_entry.get() != ' ':
-        dataf = dataf[dataf['航班性质'] == flight_entry.get()]
-
-    if time_entry_1.get() != '':
-        dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
-        date_start = pd.to_datetime(time_entry_1.get())
-        dataf = dataf[dataf['航班时间'] >= date_start]
-    if time_entry_2.get() != '':
-        try:
-            dataf['航班时间'] = pd.to_datetime(dataf['航班时间'])
-            date_end = pd.to_datetime(time_entry_2.get())
-        except:
-            date_end = pd.to_datetime(time_entry_2.get())
-        dataf = dataf[dataf['航班时间'] <= date_end]
-    dataf = dataf.reset_index(drop=True)
+    dataf = filter_data(dataf)
 
     # 获取勾选的选项
     selected_options = []
@@ -1065,7 +1060,6 @@ def process_file():
         plot_window.title(f"计算结果_{name}")
         # 调用函数创建Matplotlib图形并嵌入Tkinter窗口
         create_plot(result_df, plot_window)
-        #result_df.to_csv(output_file_path, encoding='gbk', index=False)
     except Exception as e:
         messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
         return
@@ -1074,7 +1068,6 @@ def process_data():
     # 获取用户输入的文件路径
     file_path = input_path_entry.get()
 
-# try:
     # 检查是否选择了导入路径
     if not file_path:
         messagebox.showinfo("提示", "未选择导入路径，请重试。")
@@ -1127,9 +1120,6 @@ def process_data():
     result_text.insert(tk.END, f"处理完成，未发现错误。 ")
     return
 
-# except Exception as e:
-#     result_text.insert(tk.END, f"发生异常：{str(e)}\n")
-
 def process_user():
     try:
         input_file_path = input_path_entry.get()
@@ -1146,6 +1136,8 @@ def process_user():
         except:
             messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
             return
+
+        dataf = filter_data(dataf)
 
         name = col1_entry.get()
         start = col2_entry.get()
@@ -1191,7 +1183,6 @@ def process_user():
             plot_window.title(f"计算结果_{name}")
             # 调用函数创建Matplotlib图形并嵌入Tkinter窗口
             create_plot(result_df, plot_window)
-            # result_df.to_csv(output_file_path, encoding='gbk', index=False)
         except Exception as e:
             messagebox.showerror("错误", f"画图时出现错误: {str(e)}")
             return
@@ -1645,7 +1636,6 @@ def cal_score():
     f5 = weight_r(wg, '节点名称', '离港滑行时间符合性', '权重') * w_f
     f6 = weight_r(wg, '节点名称', '放行延误时间', '权重') * w_f
 
-    ## standard可以设置成读取形式
     ## A类指标
     v = pd.read_csv('正常值上下界读取.csv', header=0, encoding='gbk')
 
@@ -1885,6 +1875,7 @@ def cal_single(entry, standard, mode, type, weight):
         return 0
 
 def cal_single_ne(time, standard, mode, type, weight):
+    # 计算平均分时的计算函数
     # standard为标准阈值，mode为指标类型（1是高于阈值满足，2是低于阈值满足）
     # type为指标类别，weight为指标权重
     try:
@@ -1921,7 +1912,7 @@ def read_airlines(filepath):  # 获取所有航空公司
     try:
         data = pd.read_csv(filepath, header=0, encoding='gbk')
     except:
-        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        messagebox.showerror("错误", "导入文件异常，请检查文件后再试。")
         return
     for i in range(0, len(data)):
         if not pd.isna(data.loc[i, '离港航班号']) and data.loc[i, '离港航班号'] != '':
@@ -1942,7 +1933,7 @@ def read_agent(filepath):  # 获取所有代理
     try:
         data = pd.read_csv(filepath, header=0, encoding='gbk')
     except:
-        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        messagebox.showerror("错误", "导入文件异常，请检查文件后再试。")
         return
     for i in range(0, len(data)):
         if not pd.isna(data.loc[i, '保障代理']) and data.loc[i, '保障代理'] != '':
@@ -1954,13 +1945,12 @@ def read_agent(filepath):  # 获取所有代理
     array = sorted(array[0:], key=custom_sort_key)
     return array
 
-#机位的顺序可能要重新调一下
 def read_stand(filepath):  # 获取所有机位
     array = [" "]
     try:
         data = pd.read_csv(filepath, header=0, encoding='gbk')
     except:
-        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        messagebox.showerror("错误", "导入文件异常，请检查文件后再试。")
         return
     for i in range(0, len(data)):
         if not pd.isna(data.loc[i, '停机位']) and data.loc[i, '停机位'] != '':
@@ -1982,7 +1972,7 @@ def meanscore():
         dataf = pd.read_csv(file_path, header=0, encoding='gbk', na_filter=False)
         dataf['客梯车数量'] = dataf['客梯车数量'].astype(str)
     except:
-        messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
+        messagebox.showerror("错误", "导入文件异常，请检查文件后再试。")
         return
     ###################################################################################################
     # 权重读取
@@ -2088,10 +2078,16 @@ def meanscore():
     score = []
     pro_bar = tk.Toplevel(root)
     pro_bar.title(f"各个航班情况统计")
-    progress_bar = CircularProgressBar(pro_bar, width=200, height=200) # 创建环形进度条
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    window_width = 220
+    window_height = 220
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+    pro_bar.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+    progress_bar = CircularProgressBar(pro_bar, width=200, height=200)
     for i in range(0, len(dataf)):
         s = 0
-        j = 0 # 加载条计数器
         c1r1 = caltime(dataf, i, '拖曳到位', '目标离港时间', 'A')
         c1r2 = caltime(dataf, i, '引导车到位', 'ELDT', 'A')
         c1r3 = caltime(dataf, i, '飞机入位机务到位', '上轮挡开始', 'A')
@@ -2438,7 +2434,7 @@ def meanscore():
         s += cal_single_ne(c4F6, 5, 2, 'F', (f6 / 2))
         sums = round(s * 100, 3)
         score.append(sums)
-        # 加入一个加载进度条
+        # 数据量过大时，计算较慢。因此加入一个加载进度条
         progress_bar.update_progress(i, len(dataf))
         root.update()
     ###############################################################################################################
@@ -2750,12 +2746,28 @@ def default_weight():
         messagebox.showerror("错误", f"恢复权重设置文件时出现错误: {str(e)}")
     return
 
+def search_n():
+    input_file_path = input_path_entry.get()
+    # 检查是否选择了导入路径
+    if not input_file_path:
+        messagebox.showwarning("警告", "未选择导入路径，请重试。")
+        return
+    # 读取csv文件
+    try:
+        dataf = pd.read_csv(input_file_path, header=0, encoding='gbk', na_filter=False)
+        dataf['客梯车数量'] = dataf['客梯车数量'].astype(str)
+    except:
+        messagebox.showerror("错误", "导入文件异常，请检查文件后再试。")
+        return
+    dataf = filter_data(dataf)
+    messagebox.showinfo("提示", f"共查询到{len(dataf)}条数据")
+
 ##############################################################################################
 ## 程序UI设计
 
 # 创建主UI窗口
 root = tk.Tk()
-root.title("保障环节计算 Ver1.10")
+root.title("保障环节统计可视化系统 Ver1.0")
 
 # 设置窗口背景颜色
 root.configure(bg="#f0f0f0")
@@ -2765,9 +2777,14 @@ root.state('zoomed')
 
 # 创建一个标签和输入框用于导入路径
 input_label = tk.Label(root, text="导入路径:")
-input_label.grid(row=0, column=0, padx=1, pady=10, sticky=tk.E)
+input_label.place(x=50, y=21, anchor='w')
 input_path_entry = tk.Entry(root, width=45)
-input_path_entry.grid(row=0, column=1, padx=1, pady=10, sticky=tk.W)
+input_path_entry.place(x=120, y=21, anchor='w')
+# wb12用于控制窗口设计
+wb1 = tk.Label(root, text=" ")
+wb1.grid(row=0, column=2, padx=1, pady=10, sticky=tk.E)
+wb2 = tk.Label(root, text=" ")
+wb2.grid(row=1, column=2, padx=1, pady=10, sticky=tk.E)
 
 # 创建选择导入路径的按钮
 def browse_input_path():
@@ -2777,9 +2794,10 @@ def browse_input_path():
     input_file_path = filedialog.askopenfilename(title="选择导入文件", filetypes=[("CSV文件", "*.csv")])
     input_path_entry.delete(0, tk.END)
     input_path_entry.insert(0, input_file_path)
-    airlines = read_airlines(input_file_path)
-    agent = read_agent(input_file_path)
-    stand = read_stand(input_file_path)
+    if input_file_path != '':
+        airlines = read_airlines(input_file_path)
+        agent = read_agent(input_file_path)
+        stand = read_stand(input_file_path)
     airlines_combobox['values'] = airlines  # 更新下拉框的值
     agent_combobox['values'] = agent  # 更新下拉框的值
     stand_combobox['values'] = stand  # 更新下拉框的值
@@ -2787,14 +2805,15 @@ def browse_input_path():
 airlines = [' ']
 agent = [' ']
 stand = [' ']
+flight = [' ']
 browse_input_button = tk.Button(root, text="选择导入文件", command=browse_input_path)
-browse_input_button.place(x=660, y=21, anchor='w')
+browse_input_button.place(x=450, y=21, anchor='w')
 
 # 创建一个标签和输入框用于导出路径
 output_label = tk.Label(root, text="导出路径:")
-output_label.grid(row=1, column=0, padx=1, pady=10, sticky=tk.E)
+output_label.place(x=50, y=65, anchor='w')
 output_path_entry = tk.Entry(root, width=45)
-output_path_entry.grid(row=1, column=1, padx=1, pady=10, sticky=tk.W)
+output_path_entry.place(x=120, y=65, anchor='w')
 
 # 创建选择导出路径的按钮
 def browse_output_path():
@@ -2803,72 +2822,73 @@ def browse_output_path():
     output_path_entry.insert(0, output_file_path)
 
 browse_output_button = tk.Button(root, text="选择导出路径", command=browse_output_path)
-browse_output_button.place(x=660, y=65, anchor='w')
+browse_output_button.place(x=450, y=65, anchor='w')
 
 # 创建下拉框-航空公司
 airlines_entry = tk.StringVar(value=" ")
 airlines_label = tk.Label(root, text="航空公司:")
-airlines_label.place(x=780, y=21, anchor='w')
+airlines_label.place(x=570, y=21, anchor='w')
 airlines_combobox = ttk.Combobox(root, textvariable=airlines_entry, values=airlines, state="readonly",
                              width=10)
 style = ttk.Style()
 style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
 airlines_combobox["style"] = "TCombobox"
-airlines_combobox.place(x=850, y=21, anchor='w')
+airlines_combobox.place(x=640, y=21, anchor='w')
 
 # 创建下拉框-代理
 agent_entry = tk.StringVar(value=" ")
 agent_label = tk.Label(root, text="代      理:")
-agent_label.place(x=780, y=65, anchor='w')
+agent_label.place(x=570, y=65, anchor='w')
 agent_combobox = ttk.Combobox(root, textvariable=agent_entry, values=agent, state="readonly",
                              width=10)
 style = ttk.Style()
 style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
 agent_combobox["style"] = "TCombobox"
-agent_combobox.place(x=850, y=65, anchor='w')
+agent_combobox.place(x=640, y=65, anchor='w')
 
 # 创建下拉框-机位
 stand_entry = tk.StringVar(value=" ")
 stand_label = tk.Label(root, text="机      位:")
-stand_label.place(x=970, y=21, anchor='w')
+stand_label.place(x=760, y=21, anchor='w')
 stand_combobox = ttk.Combobox(root, textvariable=stand_entry, values=stand, state="readonly",
                              width=10)
 style = ttk.Style()
 style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
 stand_combobox["style"] = "TCombobox"
-stand_combobox.place(x=1040, y=21, anchor='w')
+stand_combobox.place(x=830, y=21, anchor='w')
 
 # 创建下拉框-航班性质
 flight_entry = tk.StringVar(value=" ")
 flight_label = tk.Label(root, text="航班性质:")
-flight_label.place(x=1160, y=21, anchor='w')
-flight_combobox = ttk.Combobox(root, textvariable=stand_entry, values=[' ', '国内', '国际', '地区'], state="readonly",
+flight_label.place(x=950, y=21, anchor='w')
+flight_combobox = ttk.Combobox(root, textvariable=flight_entry, values=[' ', '国内', '国际', '地区'], state="readonly",
                              width=10)
 style = ttk.Style()
 style.configure("TCombobox", padding=5, relief="flat", borderwidth=1)
 flight_combobox["style"] = "TCombobox"
-flight_combobox.place(x=1230, y=21, anchor='w')
+flight_combobox.place(x=1020, y=21, anchor='w')
 
 # 创建下拉框-时间
 time_label = tk.Label(root, text="时间范围:")
-time_label.place(x=970, y=65, anchor='w')
+time_label.place(x=760, y=65, anchor='w')
 time_entry_1 = tk.Entry(root, width=10)
-time_entry_1.place(x=1040, y=65, anchor='w')
+time_entry_1.place(x=830, y=65, anchor='w')
 time_label_mid = tk.Label(root, text="——")
-time_label_mid.place(x=1116, y=65, anchor='w')
+time_label_mid.place(x=906, y=65, anchor='w')
 time_entry_2 = tk.Entry(root, width=10)
-time_entry_2.place(x=1150, y=65, anchor='w')
+time_entry_2.place(x=940, y=65, anchor='w')
 
+# 创建搜索符合条件数目航班按钮
+search = tk.Button(root, text="搜索符合条件航班数目", command=search_n)
+search.place(x=1030, y=65, anchor='w')
+##############################################################################################################
 # 创建选项卡
 notebook = ttk.Notebook(root)
 notebook.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W, columnspan=4)
 
 # 创建第一个选项卡
 tab1 = ttk.Frame(notebook)
-notebook.add(tab1, text="航班保障标准统计")
-
-# 设置列权重，使每列的宽度相同
-#tab1.columnconfigure(2, minsize=1)
+notebook.add(tab1, text="过站航班保障标准统计")
 
 input_label = tk.Label(tab1, text="计算指标:")
 input_label.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
@@ -2876,7 +2896,7 @@ input_label.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
 # 创建子选项卡
 notebook1 = ttk.Notebook(tab1)
 notebook1.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
-#########################################################
+##############################################################################################################
 # 创建第一个子选项卡
 tab1_1 = ttk.Frame(notebook1)
 notebook1.add(tab1_1, text="人员/车辆/设备到位")
@@ -2962,7 +2982,6 @@ for index, option_text in enumerate(options1):
 
 selected_option1.set(None)
 ##############################################################
-#########################################################3
 # 创建"作业开始时间"子选项卡
 tab1_21 = ttk.Frame(notebook1)
 notebook1.add(tab1_21, text="作业开始时间")
@@ -3041,7 +3060,6 @@ for index, option_text in enumerate(options):
 
 selected_option_21.set(None)
 ##############################################################
-#########################################################3
 # 创建第二个子选项卡
 tab1_2 = ttk.Frame(notebook1)
 notebook1.add(tab1_2, text="作业操作时间")
@@ -3125,7 +3143,6 @@ for index, option_text in enumerate(options):
 
 selected_option_2.set(None)
 ##############################################################
-#########################################################3
 # 创建第三个子选项卡
 tab1_3 = ttk.Frame(notebook1)
 notebook1.add(tab1_3, text="作业完成时间")
@@ -3209,7 +3226,6 @@ for index, option_text in enumerate(options):
 
 selected_option_3.set(None)
 ##############################################################
-#########################################################3
 # 创建第四个子选项卡
 tab1_4 = ttk.Frame(notebook1)
 notebook1.add(tab1_4, text="作业衔接时间")
@@ -3290,7 +3306,6 @@ for index, option_text in enumerate(options):
 
 selected_option_4.set(None)
 ################################################################################################
-#########################################################3
 # 创建第四个子选项卡
 tab1_5 = ttk.Frame(notebook1)
 notebook1.add(tab1_5, text="快速过站指标")
@@ -3403,7 +3418,7 @@ notebook1.bind("<<NotebookTabChanged>>", on_tab_change_1)
 
 # 创建第二个选项卡
 tab2 = ttk.Frame(notebook)
-notebook.add(tab2, text="数据清洗")
+notebook.add(tab2, text=" 数据清洗 ")
 
 # 列名输入框
 qx_col1_label = tk.Label(tab2, text="开始节点列名：")
@@ -3447,7 +3462,7 @@ result_text.config(yscrollcommand=scrollbar_qx.set)
 ##########################################################################
 # 创建第三个选项卡
 tab3 = ttk.Frame(notebook)
-notebook.add(tab3, text="自定义计算")
+notebook.add(tab3, text="自定义指标标准统计")
 
 # 列名输入框
 col1_label = tk.Label(tab3, text="保障环节名称：")
@@ -3509,7 +3524,7 @@ process_button.grid(row=9, column=1, pady=20, sticky=tk.E)
 
 # 创建第四个选项卡
 tab4 = ttk.Frame(notebook)
-notebook.add(tab4, text=" 过站航班评分 ")
+notebook.add(tab4, text=" 过站航班保障评分 ")
 
 ##第一列
 tab4_col0_label = tk.Label(tab4, text="作业")
@@ -3607,7 +3622,6 @@ entries_col2 = [
     ("C轮挡、反光锥形标志物撤离时间", ""),
     ("D申请拖曳时间", ""),
     ("D廊桥检查及准备工作完成时间", ""),
-    # ("D廊桥/客梯车对接完成", ""),
     ("D清洁完成", ""),
     ("D清水完成", ""),
     ("D污水完成", ""),
@@ -3731,23 +3745,27 @@ tab4_F7_label.grid(row=15, column=6, padx=10, pady=1, sticky=tk.W)
 tab4_F7_entry = tk.Entry(tab4, width=7)
 tab4_F7_entry.grid(row=15, column=7, padx=10, pady=1, sticky=tk.W)
 
+wb3 = tk.Label(tab4, text="")
+wb3.grid(row=18, column=6, padx=10, pady=30, sticky=tk.W)
+wb4 = tk.Label(tab4, text="")
+wb4.grid(row=19, column=6, padx=10, pady=1, sticky=tk.W)
+wb5 = tk.Label(tab4, text="")
+wb5.grid(row=20, column=6, padx=10, pady=1, sticky=tk.W)
+
 tab4_col1b_button1 = tk.Button(tab4, text="读取数据", command=readcsv)
-tab4_col1b_button1.grid(row=19, column=7, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_button1.place(x=1005, y=440, anchor='w')
 tab4_col1b_label = tk.Label(tab4, text="目标\n航班序号", wraplength=140)
-tab4_col1b_label.grid(row=19, column=8, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_label.place(x=1085, y=440, anchor='w')
 tab4_col1b_entry = tk.Entry(tab4, width=10)
-tab4_col1b_entry.grid(row=19, column=9, padx=10, pady=1, sticky=tk.W)
+tab4_col1b_entry.place(x=1150, y=440, anchor='w')
 tab4_col1b_entry.insert(0, 1)
 tab4_col1c_button2 = tk.Button(tab4, text="计算评分", command=cal_score, width=18, bg="#5cb85c", fg="white")
-tab4_col1c_button2.grid(row=20, column=7, padx=10, pady=1, sticky=tk.W, columnspan=2)
+tab4_col1c_button2.place(x=1005, y=480, anchor='w')
 tab4_col1c_entry = tk.Entry(tab4, width=10)
-tab4_col1c_entry.grid(row=20, column=9, padx=10, pady=1, sticky=tk.W)
+tab4_col1c_entry.place(x=1150, y=480, anchor='w')
 
 tab4_col1d_button2 = tk.Button(tab4, text="计算所有航班平均分", command=meanscore, width=18, bg="#5cb85c", fg="white")
-tab4_col1d_button2.grid(row=21, column=7, padx=10, pady=40, sticky=tk.W, columnspan=2)
-tab4_col1d_entry = tk.Entry(tab4, width=10)
-tab4_col1d_entry.grid(row=21, column=9, padx=10, pady=40, sticky=tk.W)
-
+tab4_col1d_button2.place(x=1005, y=520, anchor='w')
 
 ######################################################################################################
 ##创建过站航班评分权重选项卡
@@ -3984,25 +4002,6 @@ tab_gzweight_button3.grid(row=2, column=9, padx=10, pady=1, sticky=tk.W)
 
 read_weight()
 ######################################################################################################
-# 创建第五个选项卡
-tab5 = ttk.Frame(notebook)
-notebook.add(tab5, text="版本信息")
-
-# 添加版本信息和功能说明文档
-function_text = tk.Text(tab5, wrap="word", height=10, width=65)
-function_text.insert("1.0", "版本Ver1.00\n")
-function_text.tag_configure("bold", font=("Helvetica", 10, "bold"))
-function_text.tag_add("bold", "1.0", "1.12")  # 将第一行文字应用 bold 样式
-function_text.insert("2.0", "1.加入了单输入参数的指标的计算\n2.可实现功能具体请参考“程序说明文档\n\n")
-
-function_text.insert("5.0", "版本Ver1.10\n")
-function_text.tag_configure("bold", font=("Helvetica", 10, "bold"))
-function_text.tag_add("bold", "5.0", "5.12")  # 将第一行文字应用 bold 样式
-function_text.insert("6.0", "1.实现了所有过站指标的统计\n"
-                            "2.将导入功能修改为统计结果可视化\n"
-                            "3.修改了导入文件和导出文件的位置，目前“导出文件”功能暂时没有用处，仅限展示\n"
-                            "4.调整了选项卡文本\n\n")
-function_text.pack(pady=10)
 
 # 运行UI循环
 root.mainloop()
