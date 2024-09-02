@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import pandas as pd
 from datetime import datetime
+import time
 import warnings
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.ticker import FuncFormatter
@@ -12,6 +13,9 @@ from matplotlib.figure import Figure
 import numpy as np
 from scipy.stats import norm, skew, kurtosis, gamma
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# 控制位次值图是否颠倒，1为颠倒
+reverse = 0
 
 def create_plot(dataf,plot_window):
     # 绘制单个环节统计情况图像
@@ -52,6 +56,7 @@ def create_plot(dataf,plot_window):
     canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 def yuzhitu(dataf,plot_window):
+    global reverse
     # 绘制单个环节统计情况图像
     plt.rcParams['font.sans-serif'] = ['SimHei']
     name = dataf.iloc[0, 0]
@@ -68,7 +73,7 @@ def yuzhitu(dataf,plot_window):
     wcz = wcz.astype(float).round().astype(int)
     wczp = dataf.iloc[0, 27:46]
     wczpp = wczp*100
-    if earlyp == '':
+    if reverse == 0:
         wcz = wcz[::-1]
         wczp = wczp[::-1]
         wczpp = wczpp[::-1]
@@ -286,9 +291,10 @@ def jf(Y, mode, ccsv):
 
 #定义转换时间函数
 def ct(time_str):
-    time_object = datetime.strptime(time_str, "%H:%M")
-    total_minutes = time_object.hour * 60 + time_object.minute
-    return total_minutes
+    date_format = "%Y/%m/%d %H:%M"
+    dt = datetime.strptime(time_str, date_format)
+    timestamp = int(time.mktime(dt.timetuple()))/60
+    return timestamp
 
 # 多输入参数处理
 def multime(arr,mode):
@@ -309,7 +315,7 @@ def multime(arr,mode):
     return ttime
 
 # 计算模块
-def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,sf=0):
+def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,sf=0,re=0):
     #name为环节名称
     #mode1=1为单输入指标，mode1=2为多输入指标
     #mode2=ABC为ABC机型，mode2=DEF为DEF机型，mode=0为不分机型
@@ -317,6 +323,8 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,sf=0):
     #type=-1为持续类和衔接类，type=1为驱动类
     # type1=1为持续类
     # 确定正常值和位次值范围
+    global reverse
+    reverse = re
     if sf == 1:
         valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
     else:
@@ -371,13 +379,12 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,sf=0):
                         a += 1
                     if zczlow <= a <= zczup:
                         Y.append(a)
-                    if wczlow < a <= wczup:
+                    if wczlow <= a <= wczup:
                         D.append(a)
         if type == 1:
             total(Y, standard, zczup, name, T, 0)
         elif type == -1:
             total(Y, 0, standard, name, T, 0)
-        jf(Y, type, 0)
         perc(D, type, 0)
     elif mode1 == 2:
         stime = 0
@@ -466,18 +473,22 @@ def cal(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,sf=0):
                 a += 1
             if zczlow <= a <= zczup:
                 Y.append(a)
-            if wczlow < a <= wczup:
+            if wczlow <= a <= wczup:
                 D.append(a)
+        if len(D) == 0:
+                messagebox.showerror("错误", "无满足条件数据，无法计算！")
+                return
         if type == 1:
             total(Y, standard, zczup, name, T, 0)
         elif type == -1:
             total(Y, 0, standard, name, T, 0)
-        jf(Y, type, 0)
         perc(D, type, 0)
 
 # 特殊计算模块——廊桥、客梯车
-def cal_shu(name,dataf,sl,slname,start,end,sf=0):
+def cal_shu(name,dataf,sl,slname,start,end,sf=0,re=0):
     # 确定正常值和位次值范围
+    global reverse
+    reverse = re
     if sf == 1:
         valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
     else:
@@ -508,17 +519,25 @@ def cal_shu(name,dataf,sl,slname,start,end,sf=0):
                 continue
         sary = []
         eary = []
+        a = 0
+        iserror = 0
         for sname in start:
             if dataf.loc[i, sname] != '':
                 sary.append(dataf.loc[i, sname])
         for ename in end:
             if dataf.loc[i, ename] != '':
                 eary.append(dataf.loc[i, ename])
-        try:
-            stime = min(sary)
-            etime = max(eary)
-            a = (ct(etime) - ct(stime))
-        except:
+        if len(sary) != 0:
+            for i in range(0,len(sary)):
+                try:
+                    sumtime = (ct(eary[i]) - ct(sary[i]))
+                    a += sumtime
+                except:
+                    iserror += 1
+                    continue
+        else:
+            continue
+        if iserror == len(sary):
             continue
         if a < -1380:
             a += 1440
@@ -526,17 +545,18 @@ def cal_shu(name,dataf,sl,slname,start,end,sf=0):
             a += 1
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
     if len(D) == 0:
         messagebox.showerror("错误", "无满足条件数据，无法计算！")
         return
     total(Y, 0, standard, name, T, 0)
-    jf(Y, -1, 0)
     perc(D, -1, 0)
 
-def cal_shu2(name,dataf,sl,slname,start,end,sf=0):
+def cal_shu2(name,dataf,sl,slname,start,end,sf=0,re=0):
     # 确定正常值和位次值范围
+    global reverse
+    reverse = re
     if sf == 1:
         valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
     else:
@@ -585,17 +605,18 @@ def cal_shu2(name,dataf,sl,slname,start,end,sf=0):
             a += 1
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
     if len(D) == 0:
         messagebox.showerror("错误", "无满足条件数据，无法计算！")
         return
     total(Y, standard, zczup, name, T, 0)
-    jf(Y, 1, 0)
     perc(D, 1, 0)
 
 # 特殊计算模块——是否载客加油及加油完成时间
-def cal_jiayou(name,dataf,zaike,start,end,sf=0):
+def cal_jiayou(name,dataf,zaike,start,end,sf=0,re=1):
+    global reverse
+    reverse = re
     # 确定正常值和位次值范围
     if sf == 1:
         valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
@@ -618,10 +639,13 @@ def cal_jiayou(name,dataf,zaike,start,end,sf=0):
     D = []
     T = 0
     for i in range(0, len(dataf)):
-        if not pd.isna(dataf.loc[i, '是否载客加油']):
-            if zaike == 1 and dataf.loc[i, '是否载客加油'] != 1 and dataf.loc[i, '是否载客加油'] != '1':
-                continue
-            elif zaike == 0 and dataf.loc[i, '是否载客加油'] != 0 and dataf.loc[i, '是否载客加油'] != '0':
+        if not pd.isna(dataf.loc[i, '登机开始']) and not pd.isna(dataf.loc[i, '加油完成']):
+            try:
+                if zaike == 1 and (ct(dataf.loc[i, '登机开始']) - ct(dataf.loc[i, '加油完成'])) > 0:
+                    continue
+                elif zaike == 0 and (ct(dataf.loc[i, '登机开始']) - ct(dataf.loc[i, '加油完成'])) < 0:
+                    continue
+            except:
                 continue
         else:
             continue
@@ -633,14 +657,18 @@ def cal_jiayou(name,dataf,zaike,start,end,sf=0):
             a += 1440
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
     total(Y, standard, zczup, name, T, 0)
-    jf(Y, 1, 0)
     perc(D, 1, 0)
 
 # 特殊计算模块——是否载客加油及加油完成时间
-def cal_peican(name,dataf,peican,start,end,sf=0):
+def cal_peican(name,dataf,peican,start,end,sf=0,re=1):
+    global reverse
+    reverse = re
     # 确定正常值和位次值范围
     if sf == 1:
         valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
@@ -663,10 +691,10 @@ def cal_peican(name,dataf,peican,start,end,sf=0):
     D = []
     T = 0
     for i in range(0, len(dataf)):
-        if not pd.isna(dataf.loc[i, '是否载客加油']):
-            if peican == 1 and dataf.loc[i, '是否载客加油'] != 1 and dataf.loc[i, '是否载客加油'] != '1':
+        if not pd.isna(dataf.loc[i, '是否加餐']):
+            if peican == 1 and dataf.loc[i, '是否加餐'] != 1 and dataf.loc[i, '是否加餐'] != '1':
                 continue
-            elif peican == 0 and dataf.loc[i, '是否载客加油'] != 0 and dataf.loc[i, '是否载客加油'] != '0':
+            elif peican == 0 and dataf.loc[i, '是否加餐'] != 0 and dataf.loc[i, '是否加餐'] != '0':
                 continue
         else:
             if peican == 1:
@@ -679,14 +707,18 @@ def cal_peican(name,dataf,peican,start,end,sf=0):
             a += 1440
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
     total(Y, standard, zczup, name, T, 0)
-    jf(Y, 1, 0)
     perc(D, 1, 0)
 
 # 特殊计算模块——登机口开放
-def cal_djk(name,dataf,jw,mode,start,end,sf=0):
+def cal_djk(name,dataf,jw,mode,start,end,sf=0,re=1):
+    global reverse
+    reverse = re
     #mode=F时仅计算F机型，mode=AE时计算A-E机型，mode=0时计算所有机型
     # 确定正常值和位次值范围
     if sf == 1:
@@ -729,14 +761,18 @@ def cal_djk(name,dataf,jw,mode,start,end,sf=0):
             a += 1440
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
     total(Y, standard, zczup, name, T, 0)
-    jf(Y, 1, 0)
     perc(D, 1, 0)
 
 # 特殊计算模块——推离机位
-def cal_tc(name,dataf,mode,start,end,sf=0):
+def cal_tc(name,dataf,mode,start,end,sf=0,re=0):
+    global reverse
+    reverse = re
     #mode=1时已对接，mode=0时未对接
     # 确定正常值和位次值范围
     if sf == 1:
@@ -776,16 +812,85 @@ def cal_tc(name,dataf,mode,start,end,sf=0):
             continue
         if a < -1380:
             a += 1440
+        if a == 0:
+            a += 1
         if zczlow <= a <= zczup:
             Y.append(a)
-        if wczlow < a <= wczup:
+        if wczlow <= a <= wczup:
             D.append(a)
-    total(Y, standard, zczup, name, T, 0)
-    jf(Y, 1, 0)
-    perc(D, 1, 0)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
+    total(Y, zczlow, standard, name, T, 0)
+    perc(D, -1, 0)
+
+def cal_ldfgz(name, dataf, mode2, start1, start2, end1, end2, sf=0,re=0):
+    global reverse
+    reverse = re
+    #mode=1时已对接，mode=0时未对接
+    # 确定正常值和位次值范围
+    if sf == 1:
+        valueread = pd.read_csv('始发正常值上下界读取.csv', header=0, encoding='gbk')
+    else:
+        valueread = pd.read_csv('过站正常值上下界读取.csv', header=0, encoding='gbk')
+    standard = valueread.loc[valueread['涉及字段名称'] == name, '计算标准阈值'].values[0]
+    zczup = valueread.loc[valueread['涉及字段名称'] == name, '正常值范围上界'].values[0]
+    zczlow = valueread.loc[valueread['涉及字段名称'] == name, '正常值范围下界'].values[0]
+    wczup = valueread.loc[valueread['涉及字段名称'] == name, '统计位次值范围上界'].values[0]
+    wczlow = valueread.loc[valueread['涉及字段名称'] == name, '统计位次值范围下界'].values[0]
+    if pd.isna(zczup):
+        zczup = 120
+    if pd.isna(zczlow):
+        zczlow = 0
+    if pd.isna(wczup):
+        wczup = zczup
+    if pd.isna(wczlow):
+        wczlow = 0
+    Y = []
+    D = []
+    T = 0
+    for i in range(0, len(dataf)):
+        if mode2 == "ABC" and dataf.loc[i, '机型大类'] not in ['A', 'B', 'C']:
+            continue
+        elif mode2 == "DEF" and dataf.loc[i, '机型大类'] not in ['D', 'E', 'F']:
+            continue
+        ##计算a1和a2，轮挡防光锥撤离时间应是a1+a2
+        try:
+            a1 = (ct(dataf.loc[i, end1]) - ct(dataf.loc[i, start1]))
+            if a1 == 0:
+                a1 += 1
+        except:
+            a1 = -1
+        try:
+            a2 = (ct(dataf.loc[i, end2]) - ct(dataf.loc[i, start2]))
+            if a2 == 0:
+                a2 += 1
+        except:
+            a2 = -1
+        if a1 < 0 and a2 < 0:
+            continue
+        elif a1 < 0 <= a2:
+            a = a2
+        elif a2 < 0 <= a1:
+            a = a1
+        else:
+            a = a1 + a2
+        if a == 0:
+            a += 1
+        if zczlow <= a <= zczup:
+            Y.append(a)
+        if wczlow <= a <= wczup:
+            D.append(a)
+    if len(D) == 0:
+        messagebox.showerror("错误", "无满足条件数据，无法计算！")
+        return
+    total(Y, zczlow, standard, name, T, 0)
+    perc(D, -1, 0)
 
 # 特殊计算模块——不满足快速过站是否满足条件
-def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不区分',sf=0):
+def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不区分',sf=0,re=0):
+    global reverse
+    reverse = re
     # mode=DEF时仅计算DEF机型，mode=ABC时计算ABC机型，mode=0时计算所有机型
     # 确定正常值和位次值范围
     if sf == 1:
@@ -810,24 +915,26 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
     T = 0
     if mode1 == 1:
         for i in range(0, len(dataf)):
-            if mode2 == 'ABC':
-                try:
-                    if dataf.loc[i, '机型大类'] not in ['A', 'B', 'C']:
-                        continue
-                    # ABC机型快速过站时间小于65min
-                    if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 65:
-                        continue
-                except:
+            try:
+                if not ct(dataf.loc[i, 'AOBT']) - ct(dataf.loc[i, 'AIBT']) < int(dataf.loc[i, 'MTTT']):
                     continue
-            elif mode2 == 'DEF':
-                try:
-                    if dataf.loc[i, '机型大类'] not in ['D', 'E', 'F']:
-                        continue
-                    # DEF机型快速过站时间小于75min
-                    if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 75:
-                        continue
-                except:
+                # try:
+                #     if ct(dataf.loc[i, '开始登机']) - ct(dataf.loc[i, '客舱清洁完成']) < 0:
+                #         continue
+                #     if ct(dataf.loc[i, '开始登机']) - ct(dataf.loc[i, '配餐完成']) < 0:
+                #         continue
+                # except:
+                #     pass
+                if mode2 == 'C' and dataf.loc[i, '机型大类'] not in ['C']:
                     continue
+                elif mode2 == 'D' and dataf.loc[i, '机型大类'] not in ['D']:
+                    continue
+                elif mode2 == 'E' and dataf.loc[i, '机型大类'] not in ['E']:
+                    continue
+                elif mode2 == 'F' and dataf.loc[i, '机型大类'] not in ['F']:
+                    continue
+            except:
+                continue
             if jw == '近' and dataf.loc[i, '近远机位'] != '近':
                 continue
             elif jw == '远' and dataf.loc[i, '近远机位'] != '远':
@@ -846,34 +953,37 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
                         a += 1
                     if zczlow <= a <= zczup:
                         Y.append(a)
-                    if wczlow < a <= wczup:
+                    if wczlow <= a <= wczup:
                         D.append(a)
         if type == 1:
             total(Y, standard, zczup, name, T, 0)
         elif type == -1:
             total(Y, 0, standard, name, T, 0)
-        jf(Y, type, 0)
         perc(D, type, 0)
     elif mode1 == 2:
         stime = 0
         etime = 0
         for i in range(0, len(dataf)):
-            if mode2 == 'ABC':
-                try:
-                    if dataf.loc[i, '机型大类'] not in ['A', 'B', 'C']:
-                        continue
-                    if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 65:
-                        continue
-                except:
+            try:
+                if not ct(dataf.loc[i, 'AOBT']) - ct(dataf.loc[i, 'AIBT']) < int(dataf.loc[i, 'MTTT']):
                     continue
-            elif mode2 == 'DEF':
-                try:
-                    if dataf.loc[i, '机型大类'] not in ['D', 'E', 'F']:
-                        continue
-                    if not ct(dataf.loc[i, 'STD']) - ct(dataf.loc[i, 'STA']) < 75:
-                        continue
-                except:
+                # try:
+                #     if ct(dataf.loc[i, '开始登机']) - ct(dataf.loc[i, '客舱清洁完成']) < 0:
+                #         continue
+                #     if ct(dataf.loc[i, '开始登机']) - ct(dataf.loc[i, '配餐完成']) < 0:
+                #         continue
+                # except:
+                #     pass
+                if mode2 == 'C' and dataf.loc[i, '机型大类'] not in ['C']:
                     continue
+                elif mode2 == 'D' and dataf.loc[i, '机型大类'] not in ['D']:
+                    continue
+                elif mode2 == 'E' and dataf.loc[i, '机型大类'] not in ['E']:
+                    continue
+                elif mode2 == 'F' and dataf.loc[i, '机型大类'] not in ['F']:
+                    continue
+            except:
+                continue
             if jw == '近' and dataf.loc[i, '近远机位'] != '近':
                 continue
             elif jw == '远' and dataf.loc[i, '近远机位'] != '远':
@@ -940,13 +1050,15 @@ def cal_ksgz(name,dataf,mode1,mode2,mode3,type,type1,start,end,startm=0,jw='不�
                 a += 1
             if zczlow <= a <= zczup:
                 Y.append(a)
-            if wczlow < a <= wczup:
+            if wczlow <= a <= wczup:
                 D.append(a)
+        if len(D) == 0:
+            messagebox.showerror("错误", "无满足条件数据，无法计算！")
+            return
         if type == 1:
             total(Y, standard, zczup, name, T, 0)
         elif type == -1:
             total(Y, 0, standard, name, T, 0)
-        jf(Y, type, 0)
         perc(D, type, 0)
 
 def cal_jfbz(name,dataf,mode,mode1,start,end,mode2=0,sf=0):
@@ -983,6 +1095,8 @@ def cal_jfbz(name,dataf,mode,mode1,start,end,mode2=0,sf=0):
                         continue
                     elif mode == 2 and (ct(dataf.loc[i, '上轮挡开始']) - ct(dataf.loc[i, 'STA'])) <= 0:
                         continue
+                elif mode == 2:
+                    continue
             except:
                 if mode2 != 1:
                     continue
@@ -994,10 +1108,9 @@ def cal_jfbz(name,dataf,mode,mode1,start,end,mode2=0,sf=0):
                 a += 1440
             if zczlow <= a <= zczup:
                 Y.append(a)
-            if wczlow < a <= wczup:
+            if wczlow <= a <= wczup:
                 D.append(a)
         total(Y, zczlow, standard1, name, T, 0)
-        jf(Y, -1, 0)
         perc(D, -1, 0)
     if mode1 == 1:
         for i in range(0, len(dataf)):
@@ -1009,10 +1122,9 @@ def cal_jfbz(name,dataf,mode,mode1,start,end,mode2=0,sf=0):
                 a += 1440
             if zczlow <= a <= zczup:
                 Y.append(a)
-            if wczlow < a <= wczup:
+            if wczlow <= a <= wczup:
                 D.append(a)
         total(Y, standard1, standard2, name, T, 0)
-        jf(Y, -1, 0)
         perc(D, -1, 0)
 # 定义处理UI的函数
 def process_file(m):
@@ -1024,6 +1136,7 @@ def process_file(m):
         return
     #读取csv文件
     try:
+        dataf = pd.DataFrame()
         dataf = pd.read_csv(input_file_path, header=0, encoding='gbk',na_filter=False,low_memory=False)
         dataf['客梯车数量'] = dataf['客梯车数量'].astype(str)
     except:
@@ -1039,232 +1152,229 @@ def process_file(m):
     selected_options.append(selected_option_4.get())
     selected_options.append(selected_option_jf.get())
     selected_options.append(selected_option_5.get())
-# try:
-    if "申请拖曳时间-EF" in selected_options:
-        cal("申请拖曳时间-EF", dataf, 1, 'EF', 0, 1, 0, '申请拖曳时间', '目标离港时间')
-    elif "申请拖曳时间-其他" in selected_options:
-        cal("申请拖曳时间-其他", dataf, 1, 'AD', 0, 1, 0, '申请拖曳时间', '目标离港时间')
-    elif "拖曳飞机到达出港机位时间-F" in selected_options:
-        cal("拖曳飞机到达出港机位时间-F", dataf, 1, 'F', 0, 1, 0, '拖曳到位', '目标离港时间')
-    elif "拖曳飞机到达出港机位时间-其他" in selected_options:
-        cal("拖曳飞机到达出港机位时间-其他", dataf, 1, 'AE', 0, 1, 0, '拖曳到位', '目标离港时间')
-    elif "航空器引导车到位时间" in selected_options:
-        cal("航空器引导车到位时间", dataf, 1, 0, 0, 1, 0, '引导车到位', 'ELDT')
-    elif "过站机务到位" in selected_options:
-        cal("过站机务到位",dataf,1,0,0,1,0,'飞机入位机务到位','EIBT')
-    elif "轮挡、反光锥形标志物放置操作时间-ABC" in selected_options:
-        cal("轮挡、反光锥形标志物放置操作时间-ABC",dataf,2,'ABC','ALL',-1,1,['EIBT','摆反光锥开始'],['上轮挡结束','摆反光锥结束'])
-    elif "轮挡、反光锥形标志物放置操作时间-DEF" in selected_options:
-        cal("轮挡、反光锥形标志物放置操作时间-DEF",dataf,2,'DEF','ALL',-1,1,['EIBT','摆反光锥开始'],['上轮挡结束','摆反光锥结束'])
-    elif "廊桥检查及准备工作完成时间-单双桥" in selected_options:
-        cal_shu2("廊桥检查及准备工作完成时间-单双桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['EIBT'])
-    elif "廊桥检查及准备工作完成时间-三桥" in selected_options:
-        cal_shu2("廊桥检查及准备工作完成时间-三桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['EIBT'])
-    elif "机务给指令与廊桥对接的衔接时间" in selected_options:
-        cal("机务给指令与廊桥对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['桥1对接开始','桥2对接开始','桥3对接开始'])
-    elif "单桥对接作业时间" in selected_options:
-        cal_shu("单桥对接作业时间",dataf,1,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
-    # id5
-    elif "双桥对接作业时间" in selected_options:
-        cal_shu("双桥对接作业时间",dataf,2,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
-    elif "三桥对接作业时间" in selected_options:
-        cal_shu("三桥对接作业时间",dataf,3,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
-    elif "客梯车到达机位时间" in selected_options:
-        cal("客梯车到达机位时间",dataf,1,0,0,1,0,'客梯车到位','EIBT')
-    elif "机务给指令与客梯车对接的衔接时间" in selected_options:
-        cal("机务给指令与客梯车对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'])
-    elif "单客梯车对接操作时间" in selected_options:
-        cal_shu("单客梯车对接操作时间",dataf,1,'客梯车数量',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'])
-    # id10
-    elif "多客梯车对接操作时间" in selected_options:
-        cal_shu("多客梯车对接操作时间",dataf,2,'客梯车数量',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'])
-    elif "首辆摆渡车到达机位时间" in selected_options:
-        cal("首辆摆渡车到达机位时间",dataf,1,0,0,1,0,'首辆摆渡车到机位','EIBT')
-    elif "地服接机人员到位时间" in selected_options:
-        cal("地服接机人员到位时间",dataf,1,0,0,1,0,'地服到位','EIBT')
-    elif "廊桥对接完成至客舱门开启" in selected_options:
-        cal("廊桥对接完成至客舱门开启",dataf, 2, 0, 'KS', -1, 0, ['桥1对接结束','桥2对接结束','桥3对接结束'], '开客门')
-    elif "客梯车对接完成至客舱门开启" in selected_options:
-        cal("客梯车对接完成至客舱门开启",dataf, 2, 0, 'KS', -1, 0, ['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], '开客门')
-    elif "装卸人员及装卸设备到位时间" in selected_options:
-        cal("装卸人员及装卸设备到位时间",dataf,1,0,0,1,0,'装卸人员到位','EIBT')
-    elif "开货门至卸行李货邮时间-ABC" in selected_options:
-        cal("开货门至卸行李货邮时间-ABC",dataf, 2, 'ABC', 'JS', -1,0, '开货门',['卸行李开始', '卸货物开始'])
-    # id15
-    elif "开货门至卸行李货邮时间-DEF" in selected_options:
-        cal("开货门至卸行李货邮时间-DEF",dataf, 2, 'DEF', 'JS', -1,0, '开货门',['卸行李开始', '卸货物开始'])
-    elif "清洁人员到位时间" in selected_options:
-        cal("清洁人员到位时间", dataf, 1, 0, 0, 1, 0, '清洁人员到位', '旅客下机完毕')
-    elif "清洁作业开始时间" in selected_options:
-        cal("清洁作业开始时间",dataf, 1, 0, 0, -1, 0, '旅客下机完毕', '清洁开始')
-    elif "客舱清洁完成时间" in selected_options:
-        cal("客舱清洁完成时间",dataf,1,0,0,1,0,'清洁完成','目标离港时间')
-    elif "污水操作完成时间" in selected_options:
-        cal("污水操作完成时间",dataf,1,0,0,1,0,'污水车拔管','目标离港时间')
-    elif "清水操作完成时间" in selected_options:
-        cal("清水操作完成时间",dataf,1,0,0,1,0,'清水车拔管','目标离港时间')
-    # id20
-    elif "餐食及机供品配供完成时间(未加餐)" in selected_options:
-        cal_peican("餐食及机供品配供完成时间(未加餐)", dataf, 0, '配餐完成','目标离港时间')
-    elif "餐食及机供品配供完成时间(加餐)" in selected_options:
-        cal_peican("餐食及机供品配供完成时间(加餐)", dataf, 1, '配餐完成', '目标离港时间')
-    elif "非载客航油加注完成时间" in selected_options:
-        cal_jiayou("非载客航油加注完成时间",dataf,0,'加油完成','目标离港时间')
-    elif "载客航油加注完成时间" in selected_options:
-        cal_jiayou("载客航油加注完成时间",dataf,1,'加油完成','目标离港时间')
-    elif "机组到位时间-F" in selected_options:
-        cal("机组到位时间-F",dataf,1,'F',0,1,0,'首名机组到机位','目标离港时间')
-    elif "机组到位时间-其他" in selected_options:
-        cal("机组到位时间-其他",dataf,1,'AE',0,1,0,'首名机组到机位','目标离港时间')
-    # id25
-    elif "近机位登机口开放时间-F" in selected_options:
-        cal_djk("近机位登机口开放时间-F",dataf,'近','F','登机口开放','目标离港时间')
-    elif "近机位登机口开放时间-其他" in selected_options:
-        cal_djk("近机位登机口开放时间-其他",dataf,'近','AE','登机口开放','目标离港时间')
-    elif "远机位登机口开放时间" in selected_options:
-        cal_djk("远机位登机口开放时间",dataf,'远',0,'登机口开放','目标离港时间')
-    elif "登机口关闭时间" in selected_options:
-        cal("登机口关闭时间",dataf,1,0,0,1,0,'登机口关闭','目标离港时间')
-    elif "行李装载开始时间" in selected_options:
-        cal("行李装载开始时间",dataf,1,0,0,1,0,'装行李开始','目标离港时间')
-    # id30
-    elif "货邮、行李装载完成时间" in selected_options:
-        cal("货邮、行李装载完成时间",dataf,1,0,0,1,0,'装载结束','目标离港时间')
-    elif "通知翻找行李时间-ABC" in selected_options:
-        cal("通知翻找行李时间-ABC",dataf,1,'ABC',0,1,0,'通知翻找行李','目标离港时间')
-    elif "通知翻找行李时间-DE" in selected_options:
-        cal("通知翻找行李时间-DE",dataf,1,'DE',0,1,0,'通知翻找行李','目标离港时间')
-    elif "通知翻找行李时间-F" in selected_options:
-        cal("通知翻找行李时间-F",dataf,1,'F',0,1,0,'通知翻找行李','目标离港时间')
-    elif "实挑实捡行李时间-AB" in selected_options:
-        cal("实挑实捡行李时间-AB",dataf,1,'AB',0,1,0,'实挑实捡行李','目标离港时间')
-    elif "实挑实捡行李时间-CD" in selected_options:
-        cal("实挑实捡行李时间-CD", dataf, 1, 'CD', 0, 1, 0, '实挑实捡行李', '目标离港时间')
-    elif "实挑实捡行李时间-EF" in selected_options:
-        cal("实挑实捡行李时间-EF", dataf, 1, 'EF', 0, 1, 0, '实挑实捡行李', '目标离港时间')
-    elif "舱单上传完成时间" in selected_options:
-        cal("舱单上传完成时间", dataf, 1, 0, 0, 1, 0, '舱单上传完成', '目标离港时间')
-    elif "首辆摆渡车到达登机口时间-ABC" in selected_options:
-        cal("首辆摆渡车到达登机口时间-ABC",dataf,1,'ABC',0,1,0,'首辆摆渡车到达登机口','目标离港时间')
-    elif "首辆摆渡车到达登机口时间-DE" in selected_options:
-        cal("首辆摆渡车到达登机口时间-DE",dataf,1,'DE',0,1,0,'首辆摆渡车到达登机口','目标离港时间')
-    elif "首辆摆渡车到达登机口时间-F" in selected_options:
-        cal("首辆摆渡车到达登机口时间-F",dataf,1,'F',0,1,0,'首辆摆渡车到达登机口','目标离港时间')
-    elif "出港最后一辆摆渡车到达远机位时间" in selected_options:
-        cal("出港最后一辆摆渡车到达远机位时间",dataf,1,0,0,1,0,'最后一辆摆渡车到机位','目标离港时间')
-    # id35
-    elif "客舱门关闭完成时间" in selected_options:
-        cal("客舱门关闭完成时间",dataf,1,0,0,1,0,'关客门','目标离港时间')
-    elif "货舱门关闭完成时间" in selected_options:
-        cal("货舱门关闭完成时间",dataf,1,0,0,1,0,'关货门','目标离港时间')
-    elif "客舱门关闭与最后一个廊桥撤离的衔接" in selected_options:
-        cal("客舱门关闭与最后一个廊桥撤离的衔接",dataf,2,0,'JS',-1,0,'关客门',['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
-    elif "单桥撤离作业时间" in selected_options:
-        cal_shu("单桥撤离作业时间",dataf, 1, '廊桥数量', ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始'],
-                ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束'])
-    elif "双桥撤离作业时间" in selected_options:
-        cal_shu("双桥撤离作业时间",dataf, 2, '廊桥数量', ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始'],
-                ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束'])
-    # id40
-    elif "三桥撤离作业时间" in selected_options:
-        cal_shu("三桥撤离作业时间",dataf,3,'廊桥数量',['桥1撤离开始','桥2撤离开始','桥3撤离开始'],['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
-    elif "客舱门关闭与最后一辆客梯车撤离的衔接" in selected_options:
-        cal("客舱门关闭与最后一辆客梯车撤离的衔接",dataf, 2, 0, 'JS', -1, 0, '关客门',
-            ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
-    elif "单客梯车撤离操作时间" in selected_options:
-        cal_shu("单客梯车撤离操作时间",dataf, 1, '客梯车数量', ['车1撤离开始', '车2撤离开始', '车3撤离开始'],
+    try:
+        if "申请拖曳时间-EF" in selected_options:
+            cal("申请拖曳时间-EF", dataf, 1, 'EF', 0, 1, 0, '申请拖曳时间', '目标离港时间',re=1)
+        elif "申请拖曳时间-其他" in selected_options:
+            cal("申请拖曳时间-其他", dataf, 1, 'AD', 0, 1, 0, '申请拖曳时间', '目标离港时间',re=1)
+        elif "拖曳飞机到达出港机位时间-F" in selected_options:
+            cal("拖曳飞机到达出港机位时间-F", dataf, 1, 'F', 0, 1, 0, '拖曳到位', '目标离港时间',re=1)
+        elif "拖曳飞机到达出港机位时间-其他" in selected_options:
+            cal("拖曳飞机到达出港机位时间-其他", dataf, 1, 'AE', 0, 1, 0, '拖曳到位', '目标离港时间',re=1)
+        elif "航空器引导车到位时间" in selected_options:
+            cal("航空器引导车到位时间", dataf, 1, 0, 0, 1, 0, '引导车到位', 'ELDT',re=1)
+        elif "过站机务到位" in selected_options:
+            cal("过站机务到位",dataf,1,0,0,1,0,'飞机入位机务到位','EIBT',re=1)
+        elif "轮挡、反光锥形标志物放置操作时间-ABC" in selected_options:
+            cal_ldfgz("轮挡、反光锥形标志物放置操作时间-ABC", dataf, 'ABC', 'EIBT', '摆反光锥开始', '上轮挡结束', '摆反光锥结束')
+        elif "轮挡、反光锥形标志物放置操作时间-DEF" in selected_options:
+            cal_ldfgz("轮挡、反光锥形标志物放置操作时间-DEF", dataf, 'DEF', 'EIBT', '摆反光锥开始', '上轮挡结束', '摆反光锥结束')
+        elif "廊桥检查及准备工作完成时间-单双桥" in selected_options:
+            cal_shu2("廊桥检查及准备工作完成时间-单双桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['EIBT'])
+        elif "廊桥检查及准备工作完成时间-三桥" in selected_options:
+            cal_shu2("廊桥检查及准备工作完成时间-三桥", dataf, 1, '廊桥数量', ['廊桥检查及准备工作完成'], ['EIBT'])
+        elif "机务给指令与廊桥对接的衔接时间" in selected_options:
+            cal("机务给指令与廊桥对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['桥1对接开始','桥2对接开始','桥3对接开始'])
+        elif "单桥对接作业时间" in selected_options:
+            cal_shu("单桥对接作业时间",dataf,1,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
+        # id5
+        elif "双桥对接作业时间" in selected_options:
+            cal_shu("双桥对接作业时间",dataf,2,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
+        elif "三桥对接作业时间" in selected_options:
+            cal_shu("三桥对接作业时间",dataf,3,'廊桥数量',['桥1对接开始','桥2对接开始','桥3对接开始'],['桥1对接结束','桥2对接结束','桥3对接结束'])
+        elif "客梯车到达机位时间" in selected_options:
+            cal("客梯车到达机位时间",dataf,1,0,0,1,0,'客梯车到位','EIBT',re=1)
+        elif "机务给指令与客梯车对接的衔接时间" in selected_options:
+            cal("机务给指令与客梯车对接的衔接时间",dataf,2,0,'JS',-1,0,'给出对接手势',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'])
+        elif "单客梯车对接操作时间" in selected_options:
+            cal_shu("单客梯车对接操作时间",dataf,1,'客梯车数量',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'])
+        # id10
+        elif "多客梯车对接操作时间" in selected_options:
+            cal_shu("多客梯车对接操作时间",dataf,2,'客梯车数量',['客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'],['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'])
+        elif "首辆摆渡车到达机位时间" in selected_options:
+            cal("首辆摆渡车到达机位时间",dataf,1,0,0,1,0,'首辆摆渡车到机位','EIBT',re=1)
+        elif "地服接机人员到位时间" in selected_options:
+            cal("地服接机人员到位时间",dataf,1,0,0,1,0,'地服到位','EIBT',re=1)
+        elif "廊桥对接完成至客舱门开启" in selected_options:
+            cal("廊桥对接完成至客舱门开启",dataf, 2, 0, 'KS', -1, 0, ['桥1对接结束','桥2对接结束','桥3对接结束'], '开客门')
+        elif "客梯车对接完成至客舱门开启" in selected_options:
+            cal("客梯车对接完成至客舱门开启",dataf, 2, 0, 'KS', -1, 0, ['客梯车1对接结束','客梯车2对接结束','客梯车3对接结束'], '开客门')
+        elif "装卸人员及装卸设备到位时间" in selected_options:
+            cal("装卸人员及装卸设备到位时间",dataf,1,0,0,1,0,'装卸人员到位','EIBT',re=1)
+        elif "开货门至卸行李货邮时间-ABC" in selected_options:
+            cal("开货门至卸行李货邮时间-ABC",dataf, 2, 'ABC', 'JS', -1,0, '开货门',['卸行李开始', '卸货物开始'])
+        # id15
+        elif "开货门至卸行李货邮时间-DEF" in selected_options:
+            cal("开货门至卸行李货邮时间-DEF",dataf, 2, 'DEF', 'JS', -1,0, '开货门',['卸行李开始', '卸货物开始'])
+        elif "清洁人员到位时间" in selected_options:
+            cal("清洁人员到位时间", dataf, 1, 0, 0, 1, 0, '清洁人员到位', '旅客下机完毕',re=1)
+        elif "清洁作业开始时间" in selected_options:
+            cal("清洁作业开始时间",dataf, 1, 0, 0, -1, 0, '旅客下机完毕', '清洁开始',re=1)
+        elif "客舱清洁完成时间" in selected_options:
+            cal("客舱清洁完成时间",dataf,1,0,0,1,0,'清洁完成','目标离港时间',re=1)
+        elif "污水操作完成时间" in selected_options:
+            cal("污水操作完成时间",dataf,1,0,0,1,0,'污水车拔管','目标离港时间',re=1)
+        elif "清水操作完成时间" in selected_options:
+            cal("清水操作完成时间",dataf,1,0,0,1,0,'清水车拔管','目标离港时间',re=1)
+        # id20
+        elif "餐食及机供品配供完成时间(未加餐)" in selected_options:
+            cal_peican("餐食及机供品配供完成时间(未加餐)", dataf, 0, '配餐完成','目标离港时间',re=1)
+        elif "餐食及机供品配供完成时间(加餐)" in selected_options:
+            cal_peican("餐食及机供品配供完成时间(加餐)", dataf, 1, '配餐完成', '目标离港时间',re=1)
+        elif "非载客航油加注完成时间" in selected_options:
+            cal_jiayou("非载客航油加注完成时间",dataf,0,'加油完成','目标离港时间',re=1)
+        elif "载客航油加注完成时间" in selected_options:
+            cal_jiayou("载客航油加注完成时间",dataf,1,'加油完成','目标离港时间',re=1)
+        elif "机组到位时间-F" in selected_options:
+            cal("机组到位时间-F",dataf,1,'F',0,1,0,'首名机组到机位','目标离港时间',re=1)
+        elif "机组到位时间-其他" in selected_options:
+            cal("机组到位时间-其他",dataf,1,'AE',0,1,0,'首名机组到机位','目标离港时间',re=1)
+        # id25
+        elif "近机位登机口开放时间-F" in selected_options:
+            cal_djk("近机位登机口开放时间-F",dataf,'近','F','登机口开放','目标离港时间',re=1)
+        elif "近机位登机口开放时间-其他" in selected_options:
+            cal_djk("近机位登机口开放时间-其他",dataf,'近','AE','登机口开放','目标离港时间',re=1)
+        elif "远机位登机口开放时间" in selected_options:
+            cal_djk("远机位登机口开放时间",dataf,'远',0,'登机口开放','目标离港时间',re=1)
+        elif "登机口关闭时间" in selected_options:
+            cal("登机口关闭时间",dataf,1,0,0,1,0,'登机口关闭','目标离港时间',re=1)
+        elif "行李装载开始时间" in selected_options:
+            cal("行李装载开始时间",dataf,1,0,0,1,0,'装行李开始','目标离港时间',re=1)
+        # id30
+        elif "货邮、行李装载完成时间" in selected_options:
+            cal("货邮、行李装载完成时间",dataf,1,0,0,1,0,'装载结束','目标离港时间',re=1)
+        elif "通知翻找行李时间-ABC" in selected_options:
+            cal("通知翻找行李时间-ABC",dataf,1,'ABC',0,1,0,'通知翻找行李','目标离港时间',re=1)
+        elif "通知翻找行李时间-DE" in selected_options:
+            cal("通知翻找行李时间-DE",dataf,1,'DE',0,1,0,'通知翻找行李','目标离港时间',re=1)
+        elif "通知翻找行李时间-F" in selected_options:
+            cal("通知翻找行李时间-F",dataf,1,'F',0,1,0,'通知翻找行李','目标离港时间',re=1)
+        elif "实挑实捡行李时间-AB" in selected_options:
+            cal("实挑实捡行李时间-AB",dataf,1,'AB',0,1,0,'实挑实捡行李','目标离港时间',re=1)
+        elif "实挑实捡行李时间-CD" in selected_options:
+            cal("实挑实捡行李时间-CD", dataf, 1, 'CD', 0, 1, 0, '实挑实捡行李', '目标离港时间',re=1)
+        elif "实挑实捡行李时间-EF" in selected_options:
+            cal("实挑实捡行李时间-EF", dataf, 1, 'EF', 0, 1, 0, '实挑实捡行李', '目标离港时间',re=1)
+        elif "舱单上传完成时间" in selected_options:
+            cal("舱单上传完成时间", dataf, 1, 0, 0, 1, 0, '舱单上传完成', '目标离港时间',re=1)
+        elif "首辆摆渡车到达登机口时间-ABC" in selected_options:
+            cal("首辆摆渡车到达登机口时间-ABC",dataf,1,'ABC',0,1,0,'首辆摆渡车到达登机口','目标离港时间',re=1)
+        elif "首辆摆渡车到达登机口时间-DE" in selected_options:
+            cal("首辆摆渡车到达登机口时间-DE",dataf,1,'DE',0,1,0,'首辆摆渡车到达登机口','目标离港时间',re=1)
+        elif "首辆摆渡车到达登机口时间-F" in selected_options:
+            cal("首辆摆渡车到达登机口时间-F",dataf,1,'F',0,1,0,'首辆摆渡车到达登机口','目标离港时间',re=1)
+        elif "出港最后一辆摆渡车到达远机位时间" in selected_options:
+            cal("出港最后一辆摆渡车到达远机位时间",dataf,1,0,0,1,0,'最后一辆摆渡车到机位','目标离港时间',re=1)
+        # id35
+        elif "客舱门关闭完成时间" in selected_options:
+            cal("客舱门关闭完成时间",dataf,1,0,0,1,0,'关客门','目标离港时间',re=1)
+        elif "货舱门关闭完成时间" in selected_options:
+            cal("货舱门关闭完成时间",dataf,1,0,0,1,0,'关货门','目标离港时间',re=1)
+        elif "客舱门关闭与最后一个廊桥撤离的衔接" in selected_options:
+            cal("客舱门关闭与最后一个廊桥撤离的衔接",dataf,2,0,'JS',-1,0,'关客门',['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
+        elif "单桥撤离作业时间" in selected_options:
+            cal_shu("单桥撤离作业时间",dataf, 1, '廊桥数量', ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始'],
+                    ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束'])
+        elif "双桥撤离作业时间" in selected_options:
+            cal_shu("双桥撤离作业时间",dataf, 2, '廊桥数量', ['桥1撤离开始', '桥2撤离开始', '桥3撤离开始'],
+                    ['桥1撤离结束', '桥2撤离结束', '桥3撤离结束'])
+        # id40
+        elif "三桥撤离作业时间" in selected_options:
+            cal_shu("三桥撤离作业时间",dataf,3,'廊桥数量',['桥1撤离开始','桥2撤离开始','桥3撤离开始'],['桥1撤离结束','桥2撤离结束','桥3撤离结束'])
+        elif "客舱门关闭与最后一辆客梯车撤离的衔接" in selected_options:
+            cal("客舱门关闭与最后一辆客梯车撤离的衔接",dataf, 2, 0, 'JS', -1, 0, '关客门',
                 ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
-    elif "多客梯车撤离操作时间" in selected_options:
-        cal_shu("多客梯车撤离操作时间",dataf, 2, '客梯车数量', ['车1撤离开始', '车2撤离开始', '车3撤离开始'],
-                ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
-    elif "牵引车、机务、拖把到位时间" in selected_options:
-        cal("牵引车、机务、拖把到位时间",dataf,2,0,'KS',1,0,['牵引车到位', '拖把到位', '飞机推出机务到位'],'TSAT',1)
-    # id45
-    elif "牵引车对接操作时间" in selected_options:
-        cal("牵引车对接操作时间",dataf,1,0,0,-1,1,'牵引车对接开始','牵引车对接结束')
-    elif "轮挡、反光锥形标志物撤离操作时间-ABC" in selected_options:
-        cal("轮挡、反光锥形标志物撤离操作时间-ABC",dataf, 2, 'ABC', 'ALL', -1, 1, ['撤轮挡开始', '撤反光锥开始'], ['撤轮挡结束', '撤反光锥结束'])
-    elif "轮挡、反光锥形标志物撤离操作时间-DEF" in selected_options:
-        cal("轮挡、反光锥形标志物撤离操作时间-DEF",dataf, 2, 'DEF', 'ALL', -1, 1, ['撤轮挡开始', '撤反光锥开始'], ['撤轮挡结束', '撤反光锥结束'])
-    elif "关舱门至首次RDY时间" in selected_options:
-        cal("关舱门至首次RDY时间",dataf,1,0,0,-1,0,'关舱门','首次RDY')
-    elif "接到指令到航空器开始推离机位时间(未对接)" in selected_options:
-        cal_tc("接到指令到航空器开始推离机位时间(未对接)",dataf,0,'防撞灯闪烁','推出')
-    # id50
-    elif "接到指令到航空器开始推离机位时间(已对接)" in selected_options:
-        cal_tc("接到指令到航空器开始推离机位时间(已对接)",dataf,1,'防撞灯闪烁','推出')
-    elif "引导车引导信息通报" in selected_options:
-        cal("引导车引导信息通报", dataf, 1, 0, 0, 1, 0, '引导车通报引导信息', 'TSAT')
-    elif "引导车接到指令至到达指定位置" in selected_options:
-        cal("引导车接到指令至到达指定位置", dataf, 1, 0, 0, -1, 0, '出港引导车接到指令', '出港引导车到位')
-    elif "放行正常情况(ATOT-STD)-仅进港不延误航班" in selected_options:
-        cal_jfbz("放行正常情况(ATOT-STD)-仅进港不延误航班", dataf, 1, 0, 'STD', 'ATOT')
-    elif "放行正常情况(ATOT-STD)-仅进港延误航班" in selected_options:
-        cal_jfbz("放行正常情况(ATOT-STD)-仅进港延误航班", dataf, 2, 0, 'STD', 'ATOT')
-    elif "COBT符合性" in selected_options:
-        cal_jfbz("COBT符合性", dataf, 0, 1, 'COBT', '撤轮挡开始')
-    elif "CTOT符合性" in selected_options:
-        cal_jfbz("CTOT符合性", dataf, 0, 1, 'CTOT', 'ATOT')
-    elif "进港滑行时间" in selected_options:
-        cal_jfbz("进港滑行时间", dataf, 0, 0, 'ALDT', '上轮挡开始')
-    elif "离港滑行时间" in selected_options:
-        cal_jfbz("离港滑行时间", dataf, 0, 0, '撤轮挡开始', 'ATOT')
-    elif "是否进港不延误(AIBT-STA)" in selected_options:
-        cal_jfbz("是否进港不延误(AIBT-STA)", dataf, 0, 0, 'STA', '上轮挡开始')
-    elif "快速过站旅客下机-C" in selected_options:
-        cal_ksgz("快速过站旅客下机-C",dataf,2,'ABC','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
-    elif "快速过站旅客下机-E" in selected_options:
-        cal_ksgz("快速过站旅客下机-E",dataf,2,'DEF','JS',-1,1,'开客门',['近机位下客结束','远机位下客结束'])
-    elif "快速过站配餐-C" in selected_options:
-        cal_ksgz("快速过站配餐-C",dataf,2,'ABC','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
-    elif "快速过站配餐-E" in selected_options:
-        cal_ksgz("快速过站配餐-E",dataf,2,'DEF','KS',-1,1,['餐车1对接','餐车2对接','餐车3对接','餐车4对接'],'配餐完成')
-    # id55
-    elif "快速过站清洁-C" in selected_options:
-        cal_ksgz("快速过站清洁-C",dataf,1,'ABC',0,-1,1,'清洁开始','清洁完成')
-    elif "快速过站清洁-E" in selected_options:
-        cal_ksgz("快速过站清洁-E",dataf,1,'DEF',0,-1,1,'清洁开始','清洁完成')
-    elif "快速过站加油-C" in selected_options:
-        cal_ksgz("快速过站加油-C",dataf,1,'ABC',0,-1,1,'加油开始','加油完成')
-    elif "快速过站加油-E" in selected_options:
-        cal_ksgz("快速过站加油-E",dataf,1,'DEF',0,-1,1,'加油开始','加油完成')
-    elif "快速过站旅客登机-C" in selected_options:
-        cal_ksgz("快速过站旅客登机-C", dataf, 2, 'ABC', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
-    # id60
-    elif "快速过站旅客登机-E" in selected_options:
-        cal_ksgz("快速过站旅客登机-E", dataf, 2, 'DEF', 'ALL', -1, 1, ['近机位登机开始', '远机位登机开始'], ['近机位登机结束', '远机位登机结束'])
-    elif "快速过站客舱清洁完成时间_下客结束-ABC" in selected_options:
-        cal_ksgz("快速过站客舱清洁完成时间_下客结束-ABC",dataf,2,'ABC','KS',-1,0,['近机位下客结束','远机位下客结束'],'清洁完成')
-    elif "快速过站客舱清洁完成时间_下客结束-DEF" in selected_options:
-        cal_ksgz("快速过站客舱清洁完成时间_下客结束-DEF",dataf,2,'DEF','KS',-1,0,['近机位下客结束','远机位下客结束'],'清洁完成')
-    elif "快速过站客舱清洁完成时间_上轮挡-ABC" in selected_options:
-        cal_ksgz("快速过站客舱清洁完成时间_上轮挡-ABC",dataf,1,'ABC',0,-1,0,'上轮挡开始','清洁完成')
-    elif "快速过站客舱清洁完成时间_上轮挡-DEF" in selected_options:
-        cal_ksgz("快速过站客舱清洁完成时间_上轮挡-DEF",dataf,1,'DEF',0,-1,0,'上轮挡开始','清洁完成')
-    # id65
-    elif "快速过站配餐完成时间_下客结束-ABC" in selected_options:
-        cal_ksgz("快速过站配餐完成时间_下客结束-ABC",dataf,2,'ABC','KS',-1,0,['近机位下客结束','远机位下客结束'],'配餐完成')
-    elif "快速过站配餐完成时间_下客结束-DEF" in selected_options:
-        cal_ksgz("快速过站配餐完成时间_下客结束-DEF",dataf,2,'DEF','KS',-1,0, ['近机位下客结束', '远机位下客结束'], '配餐完成')
-    elif "快速过站配餐完成时间_上轮挡-ABC" in selected_options:
-        cal_ksgz("快速过站配餐完成时间_上轮挡-ABC",dataf,1,'ABC',0,-1,0,'上轮挡开始','配餐完成')
-    elif "快速过站配餐完成时间_上轮挡-DEF" in selected_options:
-        cal_ksgz("快速过站配餐完成时间_上轮挡-DEF",dataf,1,'DEF',0,-1,0,'上轮挡开始','配餐完成')
-    elif "快速过站登机口开放时间_近机位-ABC" in selected_options:
-        cal_ksgz("快速过站登机口开放时间_近机位-ABC", dataf, 1, 'ABC', 0, -1, 0, '开客门', '登机口开放', 0, '近')
-    # id70
-    elif "快速过站登机口开放时间_近机位-DEF" in selected_options:
-        cal_ksgz("快速过站登机口开放时间_近机位-DEF", dataf, 1, 'DEF', 0, -1, 0, '开客门', '登机口开放', 0, '近')
-    elif "快速过站登机口开放时间_远机位-ABC" in selected_options:
-        cal_ksgz("快速过站登机口开放时间_远机位-ABC", dataf, 1, 'ABC', 0, -1, 0, '开客门', '登机口开放', 0, '远')
-    elif "快速过站登机口开放时间_远机位-DEF" in selected_options:
-        cal_ksgz("快速过站登机口开放时间_远机位-DEF", dataf, 1, 'DEF', 0, -1, 0, '开客门', '登机口开放', 0, '远')
-    else:
-        messagebox.showinfo("提示", "未选择计算指标，请重试。")
+        elif "单客梯车撤离操作时间" in selected_options:
+            cal_shu("单客梯车撤离操作时间",dataf, 1, '客梯车数量', ['车1撤离开始', '车2撤离开始', '车3撤离开始'],
+                    ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
+        elif "多客梯车撤离操作时间" in selected_options:
+            cal_shu("多客梯车撤离操作时间",dataf, 2, '客梯车数量', ['车1撤离开始', '车2撤离开始', '车3撤离开始'],
+                    ['车1撤离结束', '车2撤离结束', '车3撤离结束'])
+        elif "牵引车、机务、拖把到位时间" in selected_options:
+            cal("牵引车、机务、拖把到位时间",dataf,2,0,'KS',1,0,['牵引车到位', '拖把到位', '飞机推出机务到位'],'目标离港时间',1,re=1)
+        # id45
+        elif "牵引车对接操作时间" in selected_options:
+            cal("牵引车对接操作时间",dataf,1,0,0,-1,1,'牵引车对接开始','牵引车对接结束')
+        elif "轮挡、反光锥形标志物撤离操作时间-ABC" in selected_options:
+            cal_ldfgz("轮挡、反光锥形标志物撤离操作时间-ABC", dataf, 'ABC', '撤轮挡开始', '撤反光锥开始', '撤轮挡结束', '撤反光锥结束')
+        elif "轮挡、反光锥形标志物撤离操作时间-DEF" in selected_options:
+            cal_ldfgz("轮挡、反光锥形标志物撤离操作时间-DEF", dataf, 'DEF', '撤轮挡开始', '撤反光锥开始', '撤轮挡结束',
+                      '撤反光锥结束')
+        elif "关舱门至首次RDY时间" in selected_options:
+            cal("关舱门至首次RDY时间",dataf,1,0,0,-1,0,'关舱门','首次RDY')
+        elif "接到指令到航空器开始推离机位时间(未对接)" in selected_options:
+            cal_tc("接到指令到航空器开始推离机位时间(未对接)",dataf,0,'防撞灯闪烁','推出')
+        # id50
+        elif "接到指令到航空器开始推离机位时间(已对接)" in selected_options:
+            cal_tc("接到指令到航空器开始推离机位时间(已对接)",dataf,1,'防撞灯闪烁','推出')
+        elif "引导车引导信息通报" in selected_options:
+            cal("引导车引导信息通报", dataf, 1, 0, 0, 1, 0, '引导车通报引导信息', '目标离港时间',re=1)
+        elif "引导车接到指令至到达指定位置" in selected_options:
+            cal("引导车接到指令至到达指定位置", dataf, 1, 0, 0, -1, 0, '出港引导车接到指令', '出港引导车到位')
+        elif "放行正常情况(ATOT-STD)-仅进港不延误航班" in selected_options:
+            cal_jfbz("放行正常情况(ATOT-STD)-仅进港不延误航班", dataf, 1, 0, 'STD', 'ATOT')
+        elif "放行正常情况(ATOT-STD)-仅进港延误航班" in selected_options:
+            cal_jfbz("放行正常情况(ATOT-STD)-仅进港延误航班", dataf, 2, 0, 'STD', 'ATOT')
+        elif "COBT符合性" in selected_options:
+            cal_jfbz("COBT符合性", dataf, 0, 1, 'COBT', '撤轮挡开始')
+        elif "CTOT符合性" in selected_options:
+            cal_jfbz("CTOT符合性", dataf, 0, 1, 'CTOT', 'ATOT')
+        elif "进港滑行时间" in selected_options:
+            cal_jfbz("进港滑行时间", dataf, 0, 0, 'ALDT', '上轮挡开始')
+        elif "离港滑行时间" in selected_options:
+            cal_jfbz("离港滑行时间", dataf, 0, 0, '撤轮挡开始', 'ATOT')
+        elif "是否进港不延误(AIBT-STA)" in selected_options:
+            cal_jfbz("是否进港不延误(AIBT-STA)", dataf, 0, 0, 'STA', '上轮挡开始')
+        elif "快速过站旅客下机-C" in selected_options:
+            cal_ksgz("快速过站旅客下机-C", dataf, 1, 'C', 0, -1, 1, '客舱门开启', '旅客下机')
+        elif "快速过站旅客下机-D" in selected_options:
+            cal_ksgz("快速过站旅客下机-D", dataf, 1, 'D', 0, -1, 1, '客舱门开启', '旅客下机')
+        elif "快速过站旅客下机-E" in selected_options:
+            cal_ksgz("快速过站旅客下机-E", dataf, 1, 'E', 0, -1, 1, '客舱门开启', '旅客下机')
+        elif "快速过站旅客下机-F" in selected_options:
+            cal_ksgz("快速过站旅客下机-F", dataf, 1, 'F', 0, -1, 1, '客舱门开启', '旅客下机')
+        elif "快速过站客舱清洁完成-C" in selected_options:
+            cal_ksgz("快速过站客舱清洁完成-C", dataf, 1, 'C', 0, -1, 1, '旅客下机', '客舱清洁完成')
+        elif "快速过站客舱清洁完成-D" in selected_options:
+            cal_ksgz("快速过站客舱清洁完成-D", dataf, 1, 'D', 0, -1, 1, '旅客下机', '客舱清洁完成')
+        elif "快速过站客舱清洁完成-E" in selected_options:
+            cal_ksgz("快速过站客舱清洁完成-E", dataf, 1, 'E', 0, -1, 1, '旅客下机', '客舱清洁完成')
+        elif "快速过站客舱清洁完成-F" in selected_options:
+            cal_ksgz("快速过站客舱清洁完成-F", dataf, 1, 'F', 0, -1, 1, '旅客下机', '客舱清洁完成')
+        elif "快速过站配餐完成-C" in selected_options:
+            cal_ksgz("快速过站配餐完成-C", dataf, 1, 'C', 0, -1, 1, '旅客下机', '配餐完成')
+        elif "快速过站配餐完成-D" in selected_options:
+            cal_ksgz("快速过站配餐完成-D", dataf, 1, 'D', 0, -1, 1, '旅客下机', '配餐完成')
+        elif "快速过站配餐完成-E" in selected_options:
+            cal_ksgz("快速过站配餐完成-E", dataf, 1, 'E', 0, -1, 1, '旅客下机', '配餐完成')
+        elif "快速过站配餐完成-F" in selected_options:
+            cal_ksgz("快速过站配餐完成-F", dataf, 1, 'F', 0, -1, 1, '旅客下机', '配餐完成')
+        elif "快速过站清水操作" in selected_options:
+            cal_ksgz("快速过站清水操作", dataf, 1, 'ALL', 0, -1, 1, 'AIBT', '清水完成')
+        elif "快速过站污水操作" in selected_options:
+            cal_ksgz("快速过站污水操作", dataf, 1, 'ALL', 0, -1, 1, 'AIBT', '清水完成')
+        elif "快速过站开始登机-C" in selected_options:
+            cal_ksgz("快速过站开始登机-C", dataf, 1, 'C', 0, -1, 1, '旅客下机', '开始登机')
+        elif "快速过站开始登机-D" in selected_options:
+            cal_ksgz("快速过站开始登机-D", dataf, 1, 'D', 0, -1, 1, '旅客下机', '开始登机')
+        elif "快速过站开始登机-E" in selected_options:
+            cal_ksgz("快速过站开始登机-E", dataf, 1, 'E', 0, -1, 1, '旅客下机', '开始登机')
+        elif "快速过站开始登机-F" in selected_options:
+            cal_ksgz("快速过站开始登机-F", dataf, 1, 'F', 0, -1, 1, '旅客下机', '开始登机')
+        elif "快速过站结束登机-C" in selected_options:
+            cal_ksgz("快速过站结束登机-C", dataf, 1, 'C', 0, -1, 1, '旅客下机', '结束登机')
+        elif "快速过站结束登机-D" in selected_options:
+            cal_ksgz("快速过站结束登机-D", dataf, 1, 'D', 0, -1, 1, '旅客下机', '结束登机')
+        elif "快速过站结束登机-E" in selected_options:
+            cal_ksgz("快速过站结束登机-E", dataf, 1, 'E', 0, -1, 1, '旅客下机', '结束登机')
+        elif "快速过站结束登机-F" in selected_options:
+            cal_ksgz("快速过站结束登机-F", dataf, 1, 'F', 0, -1, 1, '旅客下机', '结束登机')
+        else:
+            messagebox.showinfo("提示", "未选择计算指标，请重试。")
+            return
+    except Exception as e:
+        messagebox.showerror("错误", f"计算时符合率/位次时出现错误: {str(e)}")
         return
-    # except Exception as e:
-    #     messagebox.showerror("错误", f"计算时符合率/位次时出现错误: {str(e)}")
-    #     return
     if result_df.empty:
         return
     if m == 1:
@@ -1312,7 +1422,8 @@ def process_file_sf(m):
         return
     #读取csv文件
     try:
-        dataf = pd.read_csv(input_file_path, header=0, encoding='gbk',na_filter=False)
+        dataf = pd.DataFrame()
+        dataf = pd.read_csv(input_file_path, header=0, encoding='gbk',na_filter=False,low_memory=False)
         dataf['客梯车数量'] = dataf['客梯车数量'].astype(str)
     except:
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
@@ -1328,63 +1439,63 @@ def process_file_sf(m):
     selected_options.append(selected_option_jfs.get())
     try:
         if "始发机务到位-F" in selected_options:
-            cal("始发机务到位-F", dataf, 1, 'F', 0, 1, 0, '机务到位', '目标离港时间', sf=1)
+            cal("始发机务到位-F", dataf, 1, 'F', 0, 1, 0, '机务到位', '目标离港时间', sf=1,re=1)
         elif "始发机务到位-其他" in selected_options:
-            cal("始发机务到位-其他", dataf, 1, 'AE', 0, 1, 0, '机务到位', '目标离港时间', sf=1)
+            cal("始发机务到位-其他", dataf, 1, 'AE', 0, 1, 0, '机务到位', '目标离港时间', sf=1,re=1)
         elif "廊桥对接完成时间-F" in selected_options:
-            cal("廊桥对接完成时间-F", dataf, 1, 'F', 0, 1, 0, '廊桥对接结束', '目标离港时间', sf=1)
+            cal("廊桥对接完成时间-F", dataf, 1, 'F', 0, 1, 0, '廊桥对接结束', '目标离港时间', sf=1,re=1)
         elif "廊桥对接完成时间-其他" in selected_options:
-            cal("廊桥对接完成时间-其他", dataf, 1, 'AE', 0, 1, 0, '廊桥对接结束', '目标离港时间', sf=1)
+            cal("廊桥对接完成时间-其他", dataf, 1, 'AE', 0, 1, 0, '廊桥对接结束', '目标离港时间', sf=1,re=1)
         elif "客梯车对接完成时间-F" in selected_options:
-            cal("客梯车对接完成时间-F", dataf, 1, 'F', 0, 1, 0, '客梯车对接结束', '目标离港时间', sf=1)
+            cal("客梯车对接完成时间-F", dataf, 1, 'F', 0, 1, 0, '客梯车对接结束', '目标离港时间', sf=1,re=1)
         elif "客梯车对接完成时间-其他" in selected_options:
-            cal("客梯车对接完成时间-其他",dataf,1,'AE',0,1,0,'客梯车对接结束','目标离港时间', sf=1)
+            cal("客梯车对接完成时间-其他",dataf,1,'AE',0,1,0,'客梯车对接结束','目标离港时间', sf=1,re=1)
         elif "廊桥对接完成至客舱门开启" in selected_options:
-            cal("廊桥对接完成至客舱门开启", dataf, 1, 0, 0, -1, 0, '廊桥对接结束','开客门', sf=1)
+            cal("廊桥对接完成至客舱门开启", dataf, 1, 0, 0, -1, 1, '廊桥对接结束','开客门', sf=1)
         elif "客梯车对接完成至客舱门开启" in selected_options:
-            cal("客梯车对接完成至客舱门开启", dataf, 1, 0, 0, -1, 0,'客梯车对接结束', '开客门', sf=1)
+            cal("客梯车对接完成至客舱门开启", dataf, 1, 0, 0, -1, 1,'客梯车对接结束', '开客门', sf=1)
         elif "首辆摆渡车到达登机口时间-ABC" in selected_options:
-            cal("首辆摆渡车到达登机口时间-ABC", dataf, 1, 'ABC', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1)
+            cal("首辆摆渡车到达登机口时间-ABC", dataf, 1, 'ABC', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1,re=1)
         elif "首辆摆渡车到达登机口时间-DE" in selected_options:
-            cal("首辆摆渡车到达登机口时间-DE", dataf, 1, 'DE', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1)
+            cal("首辆摆渡车到达登机口时间-DE", dataf, 1, 'DE', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1,re=1)
         elif "首辆摆渡车到达登机口时间-F" in selected_options:
-            cal("首辆摆渡车到达登机口时间-F", dataf, 1, 'F', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1)
+            cal("首辆摆渡车到达登机口时间-F", dataf, 1, 'F', 0, 1, 0, '首辆摆渡车到达登机口', '目标离港时间', sf=1,re=1)
         elif "出港最后一辆摆渡车到达远机位时间" in selected_options:
-            cal("出港最后一辆摆渡车到达远机位时间", dataf, 1, 0, 0, 1, 0, '最后一辆摆渡车到机位', '目标离港时间', sf=1)
+            cal("出港最后一辆摆渡车到达远机位时间", dataf, 1, 0, 0, 1, 0, '最后一辆摆渡车到机位', '目标离港时间', sf=1,re=1)
         elif "客舱清洁完成时间" in selected_options:
-            cal("客舱清洁完成时间", dataf, 1, 0, 0, 1, 0, '清洁完成', '目标离港时间', sf=1)
+            cal("客舱清洁完成时间", dataf, 1, 0, 0, 1, 0, '清洁完成', '目标离港时间', sf=1,re=1)
         elif "清水操作完成时间" in selected_options:
-            cal("清水操作完成时间", dataf, 1, 0, 0, 1, 0, '清水车拔管', '目标离港时间', sf=1)
+            cal("清水操作完成时间", dataf, 1, 0, 0, 1, 0, '清水车拔管', '目标离港时间', sf=1,re=1)
         elif "餐食及机供品配供完成时间(未加餐)" in selected_options:
-            cal_peican("餐食及机供品配供完成时间(未加餐)", dataf, 0, '配餐完成', '目标离港时间', sf=1)
+            cal_peican("餐食及机供品配供完成时间(未加餐)", dataf, 0, '配餐完成', '目标离港时间', sf=1,re=1)
         elif "餐食及机供品配供完成时间(加餐)" in selected_options:
-            cal_peican("餐食及机供品配供完成时间(加餐)", dataf, 1, '配餐完成', '目标离港时间', sf=1)
+            cal_peican("餐食及机供品配供完成时间(加餐)", dataf, 1, '配餐完成', '目标离港时间', sf=1,re=1)
         elif "非载客航油加注完成时间" in selected_options:
-            cal_jiayou("非载客航油加注完成时间", dataf, 0, '加油完成', '目标离港时间', sf=1)
+            cal_jiayou("非载客航油加注完成时间", dataf, 0, '加油完成', '目标离港时间', sf=1,re=1)
         elif "载客航油加注完成时间" in selected_options:
-            cal_jiayou("载客航油加注完成时间", dataf, 1, '加油完成', '目标离港时间', sf=1)
+            cal_jiayou("载客航油加注完成时间", dataf, 1, '加油完成', '目标离港时间', sf=1,re=1)
         elif "机组到位时间-F" in selected_options:
-            cal("机组到位时间-F", dataf, 1, 'F', 0, 1, 0, '首名机组到机位', '目标离港时间', sf=1)
+            cal("机组到位时间-F", dataf, 1, 'F', 0, 1, 0, '首名机组到机位', '目标离港时间', sf=1,re=1)
         elif "机组到位时间-其他" in selected_options:
-            cal("机组到位时间-其他", dataf, 1, 'AE', 0, 1, 0, '首名机组到机位', '目标离港时间', sf=1)
+            cal("机组到位时间-其他", dataf, 1, 'AE', 0, 1, 0, '首名机组到机位', '目标离港时间', sf=1,re=1)
         elif "近机位登机口开放时间-F" in selected_options:
-            cal_djk("近机位登机口开放时间-F", dataf, '近', 'F', '登机口开放', '目标离港时间', sf=1)
+            cal_djk("近机位登机口开放时间-F", dataf, '近', 'F', '登机口开放', '目标离港时间', sf=1,re=1)
         elif "近机位登机口开放时间-其他" in selected_options:
-            cal_djk("近机位登机口开放时间-其他", dataf, '近', 'AE', '登机口开放', '目标离港时间', sf=1)
+            cal_djk("近机位登机口开放时间-其他", dataf, '近', 'AE', '登机口开放', '目标离港时间', sf=1,re=1)
         elif "远机位登机口开放时间" in selected_options:
-            cal_djk("远机位登机口开放时间", dataf, '远', 0, '登机口开放', '目标离港时间', sf=1)
+            cal_djk("远机位登机口开放时间", dataf, '远', 0, '登机口开放', '目标离港时间', sf=1,re=1)
         elif "登机口关闭时间" in selected_options:
-            cal("登机口关闭时间", dataf, 1, 0, 0, 1, 0, '登机口关闭', '目标离港时间', sf=1)
+            cal("登机口关闭时间", dataf, 1, 0, 0, 1, 0, '登机口关闭', '目标离港时间', sf=1,re=1)
         elif "行李装载开始时间" in selected_options:
-            cal("行李装载开始时间", dataf, 1, 0, 0, 1, 0, '装行李开始', '目标离港时间', sf=1)
+            cal("行李装载开始时间", dataf, 1, 0, 0, 1, 0, '装行李开始', '目标离港时间', sf=1,re=1)
         elif "货邮、行李装载完成时间" in selected_options:
-            cal("货邮、行李装载完成时间", dataf, 1, 0, 0, 1, 0, '装载结束', '目标离港时间', sf=1)
+            cal("货邮、行李装载完成时间", dataf, 1, 0, 0, 1, 0, '装载结束', '目标离港时间', sf=1,re=1)
         elif "客舱门关闭完成时间" in selected_options:
-            cal("客舱门关闭完成时间", dataf, 1, 0, 0, 1, 0, '关客门', '目标离港时间', sf=1)
+            cal("客舱门关闭完成时间", dataf, 1, 0, 0, 1, 0, '关客门', '目标离港时间', sf=1,re=1)
         elif "货舱门关闭完成时间" in selected_options:
-            cal("货舱门关闭完成时间", dataf, 1, 0, 0, 1, 0, '关货门', '目标离港时间', sf=1)
+            cal("货舱门关闭完成时间", dataf, 1, 0, 0, 1, 0, '关货门', '目标离港时间', sf=1,re=1)
         elif "客舱门关闭与最后一个廊桥撤离的衔接" in selected_options:
-            cal("客舱门关闭与最后一个廊桥撤离的衔接", dataf, 1, 0, 0, -1, 0, '关客门','廊桥撤离结束', sf=1)
+            cal("客舱门关闭与最后一个廊桥撤离的衔接", dataf, 1, 0, 0, -1, 1, '关客门','廊桥撤离结束', sf=1)
         elif "单桥撤离作业时间" in selected_options:
             cal_shu("单桥撤离作业时间", dataf, 1, '廊桥数量', ['廊桥撤离开始'],['廊桥撤离结束'], sf=1)
         elif "双桥撤离作业时间" in selected_options:
@@ -1392,36 +1503,36 @@ def process_file_sf(m):
         elif "三桥撤离作业时间" in selected_options:
             cal_shu("三桥撤离作业时间", dataf, 3, '廊桥数量', ['廊桥撤离开始'],['廊桥撤离结束'], sf=1)
         elif "客舱门关闭与最后一辆客梯车撤离的衔接" in selected_options:
-            cal("客舱门关闭与最后一辆客梯车撤离的衔接", dataf, 1, 0, 0, -1, 0, '关客门','客梯车撤离结束', sf=1)
+            cal("客舱门关闭与最后一辆客梯车撤离的衔接", dataf, 1, 0, 0, -1, 1, '关客门','客梯车撤离结束', sf=1)
         elif "单客梯车撤离操作时间" in selected_options:
             cal_shu("单客梯车撤离操作时间", dataf, 1, '客梯车数量', ['客梯车撤离开始'],['客梯车撤离结束'], sf=1)
         elif "多客梯车撤离操作时间" in selected_options:
             cal_shu("多客梯车撤离操作时间", dataf, 2, '客梯车数量', ['客梯车撤离开始'],['客梯车撤离结束'], sf=1)
         elif "牵引车、机务、拖把到位时间" in selected_options:
             cal("牵引车、机务、拖把到位时间", dataf, 2, 0, 'KS', 1, 0, ['牵引车到位', '拖把到位', '机务到位'],
-                'TSAT', 1, sf=1)
+                '目标离港时间', 1, sf=1,re=1)
         elif "牵引车对接操作时间" in selected_options:
             cal("牵引车对接操作时间", dataf, 1, 0, 0, -1, 1, '牵引车对接开始', '牵引车对接结束', sf=1)
         elif "轮挡、反光锥形标志物撤离操作时间-ABC" in selected_options:
-            cal("轮挡、反光锥形标志物撤离操作时间-ABC", dataf, 2, 'ABC', 'ALL', -1, 1, ['撤轮挡开始', '撤反光锥开始'],
-                ['撤轮挡结束', '撤反光锥结束'], sf=1)
+            cal_ldfgz("轮挡、反光锥形标志物撤离操作时间-ABC", dataf, 'ABC', '撤轮挡开始', '撤反光锥开始', '撤轮挡结束',
+                      '撤反光锥结束', sf=1)
         elif "轮挡、反光锥形标志物撤离操作时间-DEF" in selected_options:
-            cal("轮挡、反光锥形标志物撤离操作时间-DEF", dataf, 2, 'DEF', 'ALL', -1, 1, ['撤轮挡开始', '撤反光锥开始'],
-                ['撤轮挡结束', '撤反光锥结束'], sf=1)
+            cal_ldfgz("轮挡、反光锥形标志物撤离操作时间-DEF", dataf, 'DEF', '撤轮挡开始', '撤反光锥开始', '撤轮挡结束',
+                      '撤反光锥结束', sf=1)
         elif "关舱门至首次RDY时间" in selected_options:
-            cal("关舱门至首次RDY时间", dataf, 2, 0, 'KS', -1, 0, ['关客门','关货门'], '首次RDY',1, sf=1)
+            cal("关舱门至首次RDY时间", dataf, 2, 0, 'KS', -1, 1, ['关客门','关货门'], '首次RDY',1, sf=1)
         elif "接到指令到航空器开始推离机位时间(未对接)" in selected_options:
             cal_tc("接到指令到航空器开始推离机位时间(未对接)", dataf, 0, '防撞灯闪烁', '推出', sf=1)
         elif "接到指令到航空器开始推离机位时间(已对接)" in selected_options:
             cal_tc("接到指令到航空器开始推离机位时间(已对接)", dataf, 1, '防撞灯闪烁', '推出', sf=1)
         elif "放行正常情况(ATOT-STD)-仅进港不延误航班" in selected_options:
-            cal_jfbz("放行正常情况(ATOT-STD)-仅进港不延误航班", dataf, 1, 0, 'STD', 'ATOT',1)
+            cal_jfbz("放行正常情况(ATOT-STD)-仅进港不延误航班", dataf, 1, 0, 'STD', 'ATOT',1, sf=1)
         elif "COBT符合性" in selected_options:
-            cal_jfbz("COBT符合性", dataf, 0, 1, 'COBT', '撤轮挡开始',1)
+            cal_jfbz("COBT符合性", dataf, 0, 1, 'COBT', '撤轮挡开始',1, sf=1)
         elif "CTOT符合性" in selected_options:
-            cal_jfbz("CTOT符合性", dataf, 0, 1, 'CTOT', 'ATOT',1)
+            cal_jfbz("CTOT符合性", dataf, 0, 1, 'CTOT', 'ATOT',1, sf=1)
         elif "离港滑行时间" in selected_options:
-            cal_jfbz("离港滑行时间", dataf, 0, 0, '撤轮挡开始', 'ATOT',1)
+            cal_jfbz("离港滑行时间", dataf, 0, 0, '撤轮挡开始', 'ATOT',1, sf=1)
         else:
             messagebox.showinfo("提示", "未选择计算指标，请重试。")
             return
@@ -1528,7 +1639,7 @@ def process_user():
             messagebox.showinfo("警告", "未选择导出路径，本次计算结果不会保存至CSV文件。")
             error = 1
         try:
-            dataf = pd.read_csv(input_file_path, header=0, encoding='gbk')
+            dataf = pd.read_csv(input_file_path, header=0, encoding='gbk',low_memory=False)
         except:
             messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
             return
@@ -1571,7 +1682,14 @@ def process_user():
         try:
             name = result_df.iloc[0, 0]
             plot_window = tk.Toplevel(root)
-            plot_window.title(f"计算结果_{name}")
+            plot_window.title(f"{name}_作业执行情况")
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            window_width = 500
+            window_height = 500
+            x_coordinate = int((screen_width - window_width) / 2)
+            y_coordinate = int((screen_height - window_height) / 2)
+            plot_window.geometry(f"{window_width}x{window_height}+{x_coordinate}+{y_coordinate}")
             # 调用函数创建Matplotlib图形并嵌入Tkinter窗口
             create_plot(result_df, plot_window)
         except Exception as e:
@@ -1648,6 +1766,7 @@ def readcsv():
         messagebox.showinfo("提示", "未选择导入路径，请重试。")
         return
     try:
+        dataf_1 = pd.DataFrame()
         dataf_1 = pd.read_csv(input_file_path, header=0, encoding='gbk', na_filter=False)
     except:
         messagebox.showinfo("错误", "导入文件异常，请检查文件后再试。")
@@ -1691,7 +1810,7 @@ def readcsv():
     c1r9 = caltime(dataf_1, rownum, '首名机组到机位', '目标离港时间', 'A')
     c1r10 = caltime(dataf_1, rownum, '首辆摆渡车到达登机口', '目标离港时间', 'A')
     c1r11 = caltime(dataf_1, rownum, '最后一辆摆渡车到机位', '目标离港时间', 'A')
-    c1r12 = caltime(dataf_1, rownum, ['TSAT'], ['牵引车到位', '拖把到位', '飞机推出机务到位'], 'D')# 节点倒过来了，输入时需输入相反数
+    c1r12 = caltime(dataf_1, rownum, ['目标离港时间'], ['牵引车到位', '拖把到位', '飞机推出机务到位'], 'D')# 节点倒过来了，输入时需输入相反数
     # B类指标
     c1r13 = caltime(dataf_1, rownum, '登机口开放', '目标离港时间', 'A')
     c1r14 = caltime(dataf_1, rownum, '装行李开始', '目标离港时间', 'A')
@@ -1726,7 +1845,7 @@ def readcsv():
     c3r2 = caltime(dataf_1, rownum, '舱单上传完成', '目标离港时间', 'A')
     c3r4 = caltime(dataf_1, rownum, '关客门', '目标离港时间', 'A')
     c3r5 = caltime(dataf_1, rownum, '关货门', '目标离港时间', 'A')
-    c3r6 = caltime(dataf_1, rownum, '引导车通报引导信息', 'TSAT', 'A')
+    c3r6 = caltime(dataf_1, rownum, '引导车通报引导信息', '目标离港时间', 'A')
     # E类指标
     c3r7 = caltime(dataf_1, rownum, ['给出对接手势'], ['桥1对接开始','桥2对接开始','桥3对接开始','客梯车1对接开始','客梯车2对接开始','客梯车3对接开始'], 'D',1)
     c3r8 = caltime(dataf_1, rownum, ['开客门'],['桥1对接结束','桥2对接结束','桥3对接结束'
@@ -2456,7 +2575,7 @@ def meanscore():
         c1r9 = caltime(dataf, i, '首名机组到机位', '目标离港时间', 'A')
         c1r10 = caltime(dataf, i, '首辆摆渡车到达登机口', '目标离港时间', 'A')
         c1r11 = caltime(dataf, i, '最后一辆摆渡车到机位', '目标离港时间', 'A')
-        c1r12 = caltime(dataf, i, ['TSAT'], ['牵引车到位', '拖把到位', '飞机推出机务到位'],
+        c1r12 = caltime(dataf, i, ['目标离港时间'], ['牵引车到位', '拖把到位', '飞机推出机务到位'],
                         'D')  # 节点倒过来了，输入时需输入相反数
         # B类指标
         c1r13 = caltime(dataf, i, '登机口开放', '目标离港时间', 'A')
@@ -2500,7 +2619,7 @@ def meanscore():
         c3r2 = caltime(dataf, i, '舱单上传完成', '目标离港时间', 'A')
         c3r4 = caltime(dataf, i, '关客门', '目标离港时间', 'A')
         c3r5 = caltime(dataf, i, '关货门', '目标离港时间', 'A')
-        c3r6 = caltime(dataf, i, '引导车通报引导信息', 'TSAT', 'A')
+        c3r6 = caltime(dataf, i, '引导车通报引导信息', '目标离港时间', 'A')
         # E类指标
         c3r7 = caltime(dataf, i, ['给出对接手势'],
                        ['桥1对接开始', '桥2对接开始', '桥3对接开始', '客梯车1对接开始', '客梯车2对接开始',
@@ -2550,14 +2669,15 @@ def meanscore():
         except:
             c4r3 = '否'
         try:
-            if dataf.loc[i, '是否载客加油'] == 1:
+            sfzaike = caltime(dataf, i, '加油完成', '登机开始', 'A')
+            if sfzaike < 0:
                 c4r4 = '是'
-            elif dataf.loc[i, '是否载客加油'] == 0:
+            elif sfzaike >= 0:
                 c4r4 = '否'
             else:
                 c4r4 = ''
         except:
-            c4r4 = ''
+            c4r4 = '否'
         try:
             if dataf.loc[i, '牵引车对接结束'] > dataf.loc[i, '防撞灯闪烁']:
                 c4r5 = '否'
@@ -3528,25 +3648,6 @@ for index, option_text in enumerate(sf_options5):
     )
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 sf_option5.set(None)
-# 创建运行程序的按钮
-sf_process_button = tk.Button(tab0, text="既有标准执行率计算", command=lambda: process_file_sf(1), height=1, width=15, bg="#5cb85c", fg="white")
-sf_process_button.place(x=150, y=400, anchor='w')
-sfyzt = tk.Button(tab0, text="拟修订标准阈值计算", command=lambda: process_file_sf(2), height=1, width=15, bg="#5cb85c", fg="white")
-sfyzt.place(x=350, y=400, anchor='w')
-# 在切换选项卡时，清除掉其他选项卡上勾选的选项
-def on_tab_change_sf(event):
-    current_tab = notebook1.index(notebook1.select())
-    if current_tab != 0:
-        sf_option1.set(None)
-    if current_tab != 1:
-        sf_option2.set(None)
-    if current_tab != 2:
-        sf_option3.set(None)
-    if current_tab != 3:
-        sf_option4.set(None)
-    if current_tab != 4:
-        sf_option5.set(None)
-notebook1.bind("<<NotebookTabChanged>>", on_tab_change_sf)
 # 创建局方指标子选项卡
 tab1_jfs = ttk.Frame(notebook1)
 notebook1.add(tab1_jfs, text="局方关注指标")
@@ -3607,17 +3708,38 @@ for index, option_text in enumerate(options_jfs):
     )
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_jfs.set(None)
+# 创建运行程序的按钮
+sf_process_button = tk.Button(tab0, text="既有标准执行率计算", command=lambda: process_file_sf(1), height=1, width=15, bg="#5cb85c", fg="white")
+sf_process_button.place(x=150, y=400, anchor='w')
+sfyzt = tk.Button(tab0, text="拟修订标准阈值计算", command=lambda: process_file_sf(2), height=1, width=15, bg="#5cb85c", fg="white")
+sfyzt.place(x=350, y=400, anchor='w')
+# 在切换选项卡时，清除掉其他选项卡上勾选的选项
+def on_tab_change_sf(event):
+    current_tab = notebook1.index(notebook1.select())
+    if current_tab != 0:
+        sf_option1.set(None)
+    if current_tab != 1:
+        sf_option2.set(None)
+    if current_tab != 2:
+        sf_option3.set(None)
+    if current_tab != 3:
+        sf_option4.set(None)
+    if current_tab != 4:
+        sf_option5.set(None)
+    if current_tab != 5:
+        selected_option_jfs.set(None)
+notebook1.bind("<<NotebookTabChanged>>", on_tab_change_sf)
 # 创建过站选项卡
 tab1 = ttk.Frame(notebook)
 notebook.add(tab1, text="过站航班保障单指标分析")
 input_label = tk.Label(tab1, text="计算指标:")
 input_label.grid(row=2, column=0, padx=10, pady=10, sticky=tk.W)
 # 创建子选项卡
-notebook1 = ttk.Notebook(tab1)
-notebook1.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
+notebook2 = ttk.Notebook(tab1)
+notebook2.grid(row=3, column=0, padx=10, pady=10, sticky=tk.W)
 # 创建第一个子选项卡
-tab1_1 = ttk.Frame(notebook1)
-notebook1.add(tab1_1, text="人员/车辆/设备到位")
+tab1_1 = ttk.Frame(notebook2)
+notebook2.add(tab1_1, text="人员/车辆/设备到位")
 #可滚动区域
 checkbox_frame1 = ttk.Frame(tab1_1)
 checkbox_frame1.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -3690,8 +3812,8 @@ for index, option_text in enumerate(options1):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option1.set(None)
 # 创建"作业开始时间"子选项卡
-tab1_21 = ttk.Frame(notebook1)
-notebook1.add(tab1_21, text="作业开始时间")
+tab1_21 = ttk.Frame(notebook2)
+notebook2.add(tab1_21, text="作业开始时间")
 #可滚动区域
 checkbox_frame_21 = ttk.Frame(tab1_21)
 checkbox_frame_21.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -3756,8 +3878,8 @@ for index, option_text in enumerate(options):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_21.set(None)
 # 创建第二个子选项卡
-tab1_2 = ttk.Frame(notebook1)
-notebook1.add(tab1_2, text="作业操作时间")
+tab1_2 = ttk.Frame(notebook2)
+notebook2.add(tab1_2, text="作业操作时间")
 #可滚动区域
 checkbox_frame_2 = ttk.Frame(tab1_2)
 checkbox_frame_2.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -3828,8 +3950,8 @@ for index, option_text in enumerate(options):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_2.set(None)
 # 创建第三个子选项卡
-tab1_3 = ttk.Frame(notebook1)
-notebook1.add(tab1_3, text="作业完成时间")
+tab1_3 = ttk.Frame(notebook2)
+notebook2.add(tab1_3, text="作业完成时间")
 #可滚动区域
 checkbox_frame_3 = ttk.Frame(tab1_3)
 checkbox_frame_3.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -3901,8 +4023,8 @@ for index, option_text in enumerate(options):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_3.set(None)
 # 创建第四个子选项卡
-tab1_4 = ttk.Frame(notebook1)
-notebook1.add(tab1_4, text="作业衔接时间")
+tab1_4 = ttk.Frame(notebook2)
+notebook2.add(tab1_4, text="作业衔接时间")
 #可滚动区域
 checkbox_frame_4 = ttk.Frame(tab1_4)
 checkbox_frame_4.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -3970,8 +4092,8 @@ for index, option_text in enumerate(options):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_4.set(None)
 # 创建局方指标子选项卡
-tab1_jf = ttk.Frame(notebook1)
-notebook1.add(tab1_jf, text="局方关注指标")
+tab1_jf = ttk.Frame(notebook2)
+notebook2.add(tab1_jf, text="局方关注指标")
 #可滚动区域
 checkbox_frame_jf = ttk.Frame(tab1_jf)
 checkbox_frame_jf.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -4033,8 +4155,8 @@ for index, option_text in enumerate(options_jf):
     radio_button.grid(row=index, column=0, padx=10, pady=1, sticky=tk.W, columnspan=2)
 selected_option_jf.set(None)
 # 创建第五个子选项卡
-tab1_5 = ttk.Frame(notebook1)
-notebook1.add(tab1_5, text="快速过站指标")
+tab1_5 = ttk.Frame(notebook2)
+notebook2.add(tab1_5, text="快速过站指标")
 #可滚动区域
 checkbox_frame_5 = ttk.Frame(tab1_5)
 checkbox_frame_5.grid(row=3, column=0, padx=10, pady=10, columnspan=4, sticky=tk.W)
@@ -4076,27 +4198,27 @@ scroll_frame_5.pack(side="left", fill="both", expand=True)
 selected_option_5 = tk.StringVar()
 options = [
     "快速过站旅客下机-C",
+    "快速过站旅客下机-D",
     "快速过站旅客下机-E",
-    "快速过站配餐-C",
-    "快速过站配餐-E",
-    "快速过站清洁-C",
-    "快速过站清洁-E",
-    "快速过站加油-C",
-    "快速过站加油-E",
-    "快速过站旅客登机-C",
-    "快速过站旅客登机-E",
-    '快速过站客舱清洁完成时间_下客结束-ABC',
-    '快速过站客舱清洁完成时间_下客结束-DEF',
-    '快速过站客舱清洁完成时间_上轮挡-ABC',
-    '快速过站客舱清洁完成时间_上轮挡-DEF',
-    '快速过站配餐完成时间_下客结束-ABC',
-    '快速过站配餐完成时间_下客结束-DEF',
-    '快速过站配餐完成时间_上轮挡-ABC',
-    '快速过站配餐完成时间_上轮挡-DEF',
-    '快速过站登机口开放时间_近机位-ABC',
-    '快速过站登机口开放时间_近机位-DEF',
-    '快速过站登机口开放时间_远机位-ABC',
-    '快速过站登机口开放时间_远机位-DEF'
+    "快速过站旅客下机-F",
+    "快速过站客舱清洁完成-C",
+    "快速过站客舱清洁完成-D",
+    "快速过站客舱清洁完成-E",
+    "快速过站客舱清洁完成-F",
+    "快速过站配餐完成-C",
+    "快速过站配餐完成-D",
+    '快速过站配餐完成-E',
+    '快速过站配餐完成-F',
+    '快速过站清水操作',
+    '快速过站污水操作',
+    '快速过站开始登机-C',
+    '快速过站开始登机-D',
+    '快速过站开始登机-E',
+    '快速过站开始登机-F',
+    '快速过站结束登机-C',
+    '快速过站结束登机-D',
+    '快速过站结束登机-E',
+    '快速过站结束登机-F'
 ]
 for index, option_text in enumerate(options):
     radio_button = tk.Radiobutton(
@@ -4117,7 +4239,7 @@ yzt = tk.Button(tab1, text="拟修订标准阈值计算", command=lambda: proces
 yzt.place(x=350, y=400, anchor='w')
 # 在切换选项卡时，清除掉其他选项卡上勾选的选项
 def on_tab_change_1(event):
-    current_tab = notebook1.index(notebook1.select())
+    current_tab = notebook2.index(notebook2.select())
     if current_tab != 0:
         selected_option1.set(None)
     if current_tab != 1:
@@ -4129,9 +4251,11 @@ def on_tab_change_1(event):
     if current_tab != 4:
         selected_option_4.set(None)
     if current_tab != 5:
+        selected_option_jf.set(None)
+    if current_tab != 6:
         selected_option_5.set(None)
-notebook1.bind("<<NotebookTabChanged>>", on_tab_change_1)
-# 创建第二个选项卡
+notebook2.bind("<<NotebookTabChanged>>", on_tab_change_1)
+# 创建第3个选项卡
 tab2 = ttk.Frame(notebook)
 notebook.add(tab2, text=" 数据清洗 ")
 # 列名输入框
@@ -4163,6 +4287,12 @@ scrollbar_qx = tk.Scrollbar(tab2, orient="vertical", command=result_text.yview)
 scrollbar_qx.grid(row=4, column=4, sticky="ns")
 # 将文本框与滚动条关联
 result_text.config(yscrollcommand=scrollbar_qx.set)
+
+# 创建过站时间符合性分析选项卡
+tab_gzfh = ttk.Frame(notebook)
+notebook.add(tab_gzfh, text="自定义指标分析")
+# 列名输入框
+
 # 创建第三个选项卡
 tab3 = ttk.Frame(notebook)
 notebook.add(tab3, text="自定义指标分析")
